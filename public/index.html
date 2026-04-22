@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OT & Provident Tracker | Premium Edition</title>
+    <!-- Built CSS -->
+    <link rel="stylesheet" href="/css/styles.css?v=5.0">
+    <!-- Inline styles for floating shapes -->
+    <style>
+        .shape {
+            position: absolute;
+            filter: blur(60px);
+            z-index: -1;
+            opacity: 0.6;
+        }
+        .shape-1 { width: 300px; height: 300px; background: theme('colors.accent-indigo'); top: -100px; left: -100px; border-radius: 50%; }
+        .shape-2 { width: 400px; height: 400px; background: theme('colors.accent-cyan'); bottom: -150px; right: -100px; border-radius: 50%; }
+        .shape-3 { width: 250px; height: 250px; background: theme('colors.accent-violet'); top: 40%; left: 50%; border-radius: 50%; transform: translate(-50%, -50%); }
+    </style>
+</head>
+<body class="bg-midnight relative min-h-screen">
+
+    <!-- Ambient Background -->
+    <div class="fixed inset-0 overflow-hidden pointer-events-none z-[-1]">
+        <div class="shape shape-1 animate-float"></div>
+        <div class="shape shape-2 animate-float-delayed"></div>
+        <div class="shape shape-3 animate-pulse-slow"></div>
+    </div>
+
+    <!-- ---------------------------------
+         LOGIN SCREEN
+    ---------------------------------- -->
+    <div id="loginScreen" class="flex items-center justify-center min-h-screen p-5">
+        <div class="w-full max-w-md animate-slide-up">
+            <div class="glass-card p-10 text-center relative overflow-hidden">
+                <div class="absolute -top-10 -right-10 w-32 h-32 bg-accent-cyan/20 blur-3xl rounded-full"></div>
+                <div class="absolute -bottom-10 -left-10 w-32 h-32 bg-accent-violet/20 blur-3xl rounded-full"></div>
+                
+                <div class="text-6xl mb-6 drop-shadow-2xl">✨</div>
+                <h1 class="text-4xl font-bold mb-3 text-gradient-primary">OT & กองทุน</h1>
+                <p class="text-slate-400 mb-8 font-light">จัดการการเงินส่วนตัวด้วยความเหนือระดับ</p>
+
+                <!-- Login Form -->
+                <form id="loginForm" onsubmit="handleLogin(event)" class="text-left mb-6 relative z-10">
+                    <div class="mb-5">
+                        <label class="input-label">อีเมล</label>
+                        <input type="email" id="loginEmail" class="input-field" placeholder="example@email.com" required>
+                    </div>
+                    <div class="mb-6">
+                        <label class="input-label">รหัสผ่าน</label>
+                        <input type="password" id="loginPassword" class="input-field" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary w-full shadow-glow-indigo">เข้าสู่ระบบ</button>
+                    <div class="text-center mt-5 text-sm text-slate-400">
+                        ยังไม่มีบัญชี? <a href="#" onclick="toggleRegister()" class="text-accent-cyan font-medium hover:underline hover:text-white transition-colors">สมัครสมาชิกใหม่</a>
+                    </div>
+                </form>
+
+                <!-- Register Form -->
+                <form id="registerForm" onsubmit="handleRegister(event)" class="text-left mb-6 relative z-10" style="display: none;">
+                    <div class="mb-4">
+                        <label class="input-label">ชื่อผู้ใช้</label>
+                        <input type="text" id="regName" class="input-field" placeholder="ชื่อของคุณ" required>
+                    </div>
+                    <div class="mb-4">
+                        <label class="input-label">อีเมล</label>
+                        <input type="email" id="regEmail" class="input-field" placeholder="example@email.com" required>
+                    </div>
+                    <div class="mb-6">
+                        <label class="input-label">รหัสผ่าน</label>
+                        <input type="password" id="regPassword" class="input-field" placeholder="••••••••" required>
+                    </div>
+                    <button type="submit" class="btn-primary w-full shadow-glow-cyan" style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);">ลงทะเบียน</button>
+                    <div class="text-center mt-5 text-sm text-slate-400">
+                        มีบัญชีอยู่แล้ว? <a href="#" onclick="toggleRegister()" class="text-accent-violet font-medium hover:underline hover:text-white transition-colors">กลับไปเข้าสู่ระบบ</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ---------------------------------
+         MAIN APP
+    ---------------------------------- -->
+    <div id="app" class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 animate-fade-in" style="display: none;">
+        
+        <!-- Header -->
+        <header class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <div class="flex items-center gap-4">
+                <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-white/20 shadow-glow-cyan flex-shrink-0">
+                    <img id="userAvatar" src="" alt="User" class="w-full h-full object-cover">
+                </div>
+                <div>
+                    <h2 class="text-xl m-0 leading-none">สวัสดี, <span id="userName" class="text-gradient-primary"></span></h2>
+                    <span class="text-sm text-slate-400">สรุปภาพรวมการเงินของคุณ</span>
+                </div>
+            </div>
+            
+            <div class="flex gap-3 items-center">
+                <!-- Date Navigator -->
+                <div class="glass-card px-4 py-2 flex items-center gap-3 shadow-glow-indigo/10">
+                    <button class="w-7 h-7 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center transition-all text-sm" onclick="navigateDate(-1)">❮</button>
+                    <div class="flex flex-col items-center min-w-[140px]">
+                        <span id="currentDate" class="font-prompt font-semibold text-base text-white tracking-wide text-center">มกราคม 2567</span>
+                        <span id="currentDatePeriod" class="text-[10px] text-slate-400 mt-0.5 tracking-wider hidden"></span>
+                    </div>
+                    <button class="w-7 h-7 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center transition-all text-sm" onclick="navigateDate(1)">❯</button>
+                </div>
+                <!-- View Toggle -->
+                <div class="glass-card p-1 flex gap-1">
+                    <button class="toggle-btn active text-xs px-3 py-1.5" data-view="monthly" onclick="switchView('monthly')">รายเดือน</button>
+                    <button class="toggle-btn text-xs px-3 py-1.5" data-view="yearly" onclick="switchView('yearly')">รายปี</button>
+                </div>
+                <button onclick="logout()" class="px-3 py-2 bg-white/5 hover:bg-expense/20 text-slate-400 hover:text-expense border border-white/10 hover:border-expense/50 rounded-lg transition-all text-xs font-medium">
+                    ออกจากระบบ
+                </button>
+            </div>
+        </header>
+
+        <!-- Premium Tab Navigation -->
+        <nav class="flex gap-2 mb-8 p-1.5 glass-card rounded-2xl overflow-x-auto hide-scrollbar">
+            <button class="nav-tab-premium active" data-tab="dashboard" onclick="switchTab('dashboard')">
+                <span class="nav-tab-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                </span>
+                <span class="nav-tab-label">แดชบอร์ด</span>
+            </button>
+            <button class="nav-tab-premium" data-tab="ot" onclick="switchTab('ot')">
+                <span class="nav-tab-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </span>
+                <span class="nav-tab-label">โอที</span>
+            </button>
+            <button class="nav-tab-premium" data-tab="fund" onclick="switchTab('fund')">
+                <span class="nav-tab-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+                </span>
+                <span class="nav-tab-label">กองทุน</span>
+            </button>
+            <button class="nav-tab-premium" data-tab="transactions" onclick="switchTab('transactions')">
+                <span class="nav-tab-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </span>
+                <span class="nav-tab-label">รายรับ-จ่าย</span>
+            </button>
+        </nav>
+
+        <!-- ---------------------------------
+             DASHBOARD TAB
+        ---------------------------------- -->
+        <div id="dashboardTab" class="tab-pane active">
+
+            <!-- Row 1: Balance Hero Card -->
+            <div class="glass-card p-6 mb-6 relative overflow-hidden flex flex-col md:flex-row justify-between items-center border-l-4 border-l-accent-cyan shadow-glow-cyan">
+                <div class="absolute -right-20 -top-20 w-64 h-64 bg-accent-cyan/10 blur-3xl rounded-full pointer-events-none"></div>
+                <div class="absolute -left-10 -bottom-10 w-40 h-40 bg-accent-indigo/10 blur-3xl rounded-full pointer-events-none"></div>
+                <div>
+                    <h3 class="text-slate-400 font-medium mb-1 text-sm uppercase tracking-widest">ยอดเงินคงเหลือ</h3>
+                    <div class="text-5xl font-prompt font-bold tracking-tight" id="dashBalance" style="color: #06b6d4;">฿0.00</div>
+                    <div class="text-slate-400 text-sm mt-2">รายรับ − รายจ่ายเดือนนี้</div>
+                </div>
+                <div class="w-full md:w-2/5 mt-5 md:mt-0">
+                    <div class="flex justify-between text-xs text-slate-400 mb-1">
+                        <span>รายรับ <span id="dashBalanceIncomePct" class="text-income font-semibold">0%</span></span>
+                        <span>รายจ่าย <span id="dashBalanceExpensePct" class="text-expense font-semibold">0%</span></span>
+                    </div>
+                    <div class="bg-midnight/60 h-3 rounded-full overflow-hidden">
+                        <div id="balanceBar" class="h-full bg-gradient-to-r from-accent-cyan to-accent-indigo w-0 transition-all duration-1000 rounded-full"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-slate-500 mt-1">
+                        <span id="dashIncomeSmall">฿0</span>
+                        <span id="dashExpenseSmall">฿0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Row 2: 5 Clickable Stat Cards -->
+            <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+
+                <!-- Income Card -->
+                <div id="dashCardIncome"
+                     onclick="openDashPopup('income')"
+                     class="dash-stat-card glass-card p-5 border-t-2 border-t-income cursor-pointer hover:shadow-glow-cyan transition-all">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-slate-400 text-xs uppercase tracking-wide">รายรับ</span>
+                        <span class="text-xl">📈</span>
+                    </div>
+                    <div class="text-2xl font-prompt font-bold text-income" id="dashIncome">฿0.00</div>
+                    <div class="text-xs text-slate-500 mt-1"><span id="dashIncomeCount">0</span> รายการ</div>
+                    <div class="text-xs text-slate-600 mt-2 flex items-center gap-1">กดเพื่อดูรายละเอียด <span>›</span></div>
+                </div>
+
+                <!-- Expense Card -->
+                <div id="dashCardExpense"
+                     onclick="openDashPopup('expense')"
+                     class="dash-stat-card glass-card p-5 border-t-2 border-t-expense cursor-pointer hover:shadow-glow-red transition-all">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-slate-400 text-xs uppercase tracking-wide">รายจ่าย</span>
+                        <span class="text-xl">📉</span>
+                    </div>
+                    <div class="text-2xl font-prompt font-bold" id="dashExpense" style="color: #f43f5e;">฿0.00</div>
+                    <div class="text-xs text-slate-500 mt-1"><span id="dashExpenseCount">0</span> รายการ</div>
+                    <div class="text-xs text-slate-600 mt-2 flex items-center gap-1">กดเพื่อดูรายละเอียด <span>›</span></div>
+                </div>
+
+                <!-- OT Card -->
+                <div id="dashCardOt"
+                     onclick="openDashPopup('ot')"
+                     class="dash-stat-card glass-card p-5 border-t-2 border-t-accent-indigo cursor-pointer hover:shadow-glow-indigo transition-all">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-slate-400 text-xs uppercase tracking-wide">รายได้ OT</span>
+                        <span class="text-xl">⏱️</span>
+                    </div>
+                    <div class="text-2xl font-prompt font-bold text-white" id="dashOtAmount">฿0.00</div>
+                    <div class="text-xs text-slate-500 mt-1"><span id="dashOtHours">0</span> ชม. · <span id="dashOtCount">0</span> รอบ</div>
+                    <div class="text-xs text-slate-600 mt-2 flex items-center gap-1">กดเพื่อดูรายละเอียด <span>›</span></div>
+                </div>
+
+                <!-- Fund Card -->
+                <div id="dashCardFund"
+                     onclick="openDashPopup('fund')"
+                     class="dash-stat-card glass-card p-5 border-t-2 border-t-accent-violet cursor-pointer hover:border-accent-violet transition-all">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-slate-400 text-xs uppercase tracking-wide">กองทุนสะสม</span>
+                        <span class="text-xl">🏦</span>
+                    </div>
+                    <div class="text-2xl font-prompt font-bold text-white" id="dashFundAmount">฿0.00</div>
+                    <div class="text-xs text-slate-500 mt-1" id="dashFundDuration">0 เดือน</div>
+                    <div class="text-xs text-slate-600 mt-2 flex items-center gap-1">กดเพื่อดูรายละเอียด <span>›</span></div>
+                </div>
+
+                <!-- Recent Card -->
+                <div id="dashCardRecent"
+                     onclick="openDashPopup('recent')"
+                     class="dash-stat-card glass-card p-5 border-t-2 border-t-accent-cyan cursor-pointer hover:shadow-glow-cyan transition-all col-span-2 lg:col-span-1">
+                    <div class="flex items-center justify-between mb-3">
+                        <span class="text-slate-400 text-xs uppercase tracking-wide">รายการล่าสุด</span>
+                        <span class="text-xl">🕐</span>
+                    </div>
+                    <div class="text-2xl font-prompt font-bold text-white" id="dashRecentCount">0</div>
+                    <div class="text-xs text-slate-500 mt-1">รายการทั้งหมดเดือนนี้</div>
+                    <div class="text-xs text-slate-600 mt-2 flex items-center gap-1">กดเพื่อดูรายการ <span>›</span></div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- ---------------------------------
+             OT TAB
+        ---------------------------------- -->
+        <div id="otTab" class="tab-pane">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">บันทึก OT</h2>
+                <button onclick="openModal('otModal')" class="btn-primary shadow-glow-indigo text-sm px-5 py-2">+ เพิ่ม OT</button>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2">
+                    <div id="otList" class="space-y-3"></div>
+                </div>
+                <div>
+                    <div id="otSummary" class="glass-card p-6 sticky top-6"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ---------------------------------
+             FUND TAB
+        ---------------------------------- -->
+        <div id="fundTab" class="tab-pane">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">กองทุนสำรองเลี้ยงชีพ</h2>
+                <div class="flex gap-2">
+                    <button onclick="openModal('fundModal')" class="btn-secondary text-sm px-5 py-2 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        ตั้งค่า
+                    </button>
+                    <button onclick="openFundContributionModal()" class="btn-primary shadow-glow-violet text-sm px-5 py-2 bg-gradient-to-r from-accent-violet to-fuchsia-500">+ เพิ่มยอดสะสม</button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2">
+                    <div id="fundContributionsList" class="space-y-3"></div>
+                </div>
+                <div>
+                    <div id="fundSummary" class="glass-card p-6 sticky top-6 border-t-4 border-t-accent-violet"></div>
+                    <div id="fundInfo" class="glass-card p-6 mt-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ---------------------------------
+             TRANSACTIONS TAB
+        ---------------------------------- -->
+        <div id="transactionsTab" class="tab-pane">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">รายรับ - รายจ่าย</h2>
+                <button onclick="openModal('transactionModal')" class="btn-primary shadow-glow-cyan text-sm px-5 py-2 bg-gradient-to-r from-accent-cyan to-blue-500">+ เพิ่มรายการ</button>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2">
+                    <div id="transactionList" class="space-y-3"></div>
+                </div>
+                <div>
+                    <div id="transactionSummary" class="glass-card p-6 sticky top-6 border-t-4 border-t-blue-500"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ---------------------------------
+         MODALS (Overlays)
+    ---------------------------------- -->
+    
+    <!-- OT Modal -->
+    <div id="otModal" class="modal-overlay">
+        <div class="modal-content glass-card p-8 relative">
+            <button onclick="closeModal('otModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">เพิ่มบันทึก OT</h3>
+            <form onsubmit="saveOtRecord(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="input-label">วันที่</label>
+                        <input type="date" id="otDate" class="input-field" oninput="onOtDateChange()" required>
+                    </div>
+
+                    <div>
+                        <label class="input-label">ฐานเงินเดือนของเดือนนี้ (฿)</label>
+                        <input type="number" id="otBaseSalary" step="0.01" min="0" class="input-field number-font" oninput="calculateOTAmount()" required>
+                        <p id="otSalaryHint" class="text-xs text-slate-400 mt-1"></p>
+                    </div>
+
+                    <div>
+                        <label class="input-label">ประเภท OT</label>
+                        <div class="grid grid-cols-2 gap-3 mt-1">
+                            <label class="ot-multiplier-option">
+                                <input type="radio" name="otMultiplier" value="1" id="otMult1" class="hidden" onchange="calculateOTAmount()" checked>
+                                <div class="ot-multiplier-card" id="otMult1Card">
+                                    <div class="text-2xl font-prompt font-black">×1</div>
+                                    <div class="text-xs text-slate-300 mt-1">ทำงานปกติ</div>
+                                </div>
+                            </label>
+                            <label class="ot-multiplier-option">
+                                <input type="radio" name="otMultiplier" value="1.5" id="otMult15" class="hidden" onchange="calculateOTAmount()">
+                                <div class="ot-multiplier-card" id="otMult15Card">
+                                    <div class="text-2xl font-prompt font-black text-accent-cyan">×1.5</div>
+                                    <div class="text-xs text-slate-300 mt-1">วันหยุด / ล่วงเวลา</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="input-label">จำนวนชั่วโมง OT</label>
+                        <input type="number" id="otHours" step="0.01" min="0" class="input-field number-font" oninput="calculateOTAmount()" required>
+                    </div>
+
+                    <!-- Auto-calc Preview -->
+                    <div class="bg-black/20 p-4 rounded-lg border border-white/10 space-y-2">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-slate-300">เรท/ชั่วโมง</span>
+                            <span id="otRateDisplay" class="font-prompt font-bold text-accent-indigo">฿0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-slate-300">ยอดรวม OT</span>
+                            <span id="otTotalDisplay" class="font-prompt font-bold text-income text-xl">฿0.00</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="input-label">รายละเอียด (ถ้ามี)</label>
+                        <input type="text" id="otDescription" class="input-field" placeholder="ทำงานพิเศษ, โปรเจกต์...">
+                    </div>
+                </div>
+                <div class="mt-8 flex gap-3">
+                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('otModal')">ยกเลิก</button>
+                    <button type="submit" class="btn-primary flex-1 shadow-glow-indigo">บันทึก OT</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Fund Modal -->
+    <div id="fundModal" class="modal-overlay">
+        <div class="modal-content glass-card p-8 relative">
+            <button onclick="closeModal('fundModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">ตั้งค่าบัญชี & รอบตัดบิล</h3>
+            <form onsubmit="saveFundSettings(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="input-label">เงินเดือนพื้นฐาน (฿)</label>
+                        <input type="number" id="fundSalary" step="0.01" min="0" class="input-field number-font" required>
+                    </div>
+                    <div>
+                        <label class="input-label">หักเข้าส่วนพนักงาน (%)</label>
+                        <input type="number" id="fundEmployeePercent" step="0.1" min="1" max="15" class="input-field number-font" required>
+                    </div>
+                    <div>
+                        <label class="input-label">วันที่เริ่มสะสม</label>
+                        <input type="date" id="fundStartDate" class="input-field" required>
+                    </div>
+                    <div>
+                        <label class="input-label">วันที่ตัดรอบบิลของทุกเดือน (1-31, 0 คือสิ้นเดือน)</label>
+                        <input type="number" id="fundCutoffDate" min="0" max="31" class="input-field number-font" placeholder="เช่น 15" required>
+                    </div>
+                </div>
+                <div class="mt-8 flex gap-3">
+                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('fundModal')">ยกเลิก</button>
+                    <button type="submit" class="btn-primary flex-1 bg-gradient-to-r from-accent-violet to-fuchsia-500 shadow-glow-indigo">บันทึกการตั้งค่า</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Fund Contribution Modal -->
+    <div id="fundContributionModal" class="modal-overlay">
+        <div class="modal-content glass-card p-8 relative">
+            <button onclick="closeModal('fundContributionModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">เพิ่มยอดสะสมกองทุน</h3>
+            <form onsubmit="saveFundContribution(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="input-label">วันที่</label>
+                        <input type="date" id="fcDate" class="input-field" required>
+                    </div>
+                    <div>
+                        <label class="input-label">ฐานเงินเดือนของเดือนนี้ (฿)</label>
+                        <input type="number" id="fcBaseSalary" step="0.01" min="0" class="input-field number-font" oninput="calculateFundAmounts()" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="input-label">ส่วนพนักงาน (%)</label>
+                            <input type="number" id="fcEmpPercent" step="0.1" min="0" class="input-field number-font" oninput="calculateFundAmounts()" required>
+                        </div>
+                        <div>
+                            <label class="input-label">ส่วนนายจ้าง (%)</label>
+                            <input type="number" id="fcEmpRPercent" step="0.1" min="0" class="input-field number-font" oninput="calculateFundAmounts()" required>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-black/20 p-4 rounded-lg border border-white/10 space-y-2 mt-2">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-slate-300">ยอดหักส่วนพนักงาน</span>
+                            <span id="fcEmpAmountDisplay" class="font-prompt font-bold text-accent-cyan text-lg">฿0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-slate-300">ยอดสมทบส่วนนายจ้าง</span>
+                            <span id="fcEmpRAmountDisplay" class="font-prompt font-bold text-income text-lg">฿0.00</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="input-label">หมายเหตุ (ถ้ามี)</label>
+                        <input type="text" id="fcDescription" class="input-field" placeholder="เช่น โบนัสสมทบพิเศษ">
+                    </div>
+                </div>
+                <div class="mt-8 flex gap-3">
+                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('fundContributionModal')">ยกเลิก</button>
+                    <button type="submit" class="btn-primary flex-1 bg-gradient-to-r from-accent-violet to-fuchsia-500 shadow-glow-indigo">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Transaction Modal -->
+    <div id="transactionModal" class="modal-overlay">
+        <div class="modal-content glass-card p-8 relative">
+            <button onclick="closeModal('transactionModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">เพิ่มรายรับ - รายจ่าย</h3>
+            <form onsubmit="saveTransaction(event)">
+                <div class="space-y-4">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="input-label">ประเภท</label>
+                            <select id="transactionType" class="input-field bg-midnight" onchange="updateTransactionCategories()" required>
+                                <option value="income">รายรับ 📈</option>
+                                <option value="expense">รายจ่าย 📉</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="input-label">วันที่</label>
+                            <input type="date" id="transactionDate" class="input-field" required>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="input-label">หมวดหมู่</label>
+                        <select id="transactionCategory" class="input-field bg-midnight" onchange="onCategoryChange()" required>
+                            <option value="เงินเดือน">💰 เงินเดือน</option>
+                            <option value="ค่าอาหาร">🍱 ค่าอาหาร</option>
+                            <option value="เบี้ยขยัน">⭐ เบี้ยขยัน</option>
+                            <option value="ค่าโบนัส">🎁 ค่าโบนัส</option>
+                            <option value="อื่นๆ (รายรับ)">📥 อื่นๆ</option>
+                        </select>
+                    </div>
+
+                    <!-- Food allowance fields (shown only when ค่าอาหาร is selected) -->
+                    <div id="foodAllowanceFields" style="display:none;">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="input-label">จำนวนวันที่ได้รับ</label>
+                                <input type="number" id="foodDays" min="0" step="1" class="input-field number-font" placeholder="เช่น 22" oninput="calculateFoodAmount()">
+                            </div>
+                            <div>
+                                <label class="input-label">ราคาต่อวัน (บาท)</label>
+                                <input type="number" id="foodRate" min="0" step="0.01" class="input-field number-font" placeholder="เช่น 30" oninput="calculateFoodAmount()">
+                            </div>
+                        </div>
+                        <div class="bg-black/20 p-3 rounded-lg border border-white/10 mt-2 flex justify-between items-center">
+                            <span class="text-slate-300 text-sm">ยอดรวมค่าอาหาร</span>
+                            <span id="foodAmountDisplay" class="font-prompt font-bold text-income text-lg">฼0.00</span>
+                        </div>
+                    </div>
+
+                    <div id="amountField">
+                        <label class="input-label">จำนวนเงิน (฼)</label>
+                        <input type="number" id="transactionAmount" step="0.01" min="0" class="input-field number-font" required>
+                    </div>
+                    <div>
+                        <label class="input-label">รายละเอียดเพิ่มเติม</label>
+                        <input type="text" id="transactionDescription" class="input-field">
+                    </div>
+                </div>
+                <div class="mt-8 flex gap-3">
+                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('transactionModal')">ยกเลิก</button>
+                    <button type="submit" class="btn-primary flex-1 shadow-glow-cyan" style="background: linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%);">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="customAlertModal" class="modal-overlay" style="z-index: 1000;">
+        <div class="modal-content glass-card p-6 relative max-w-sm text-center">
+            <div id="alertIcon" class="text-4xl mb-4">⚠️</div>
+            <h3 class="text-xl font-bold mb-2 text-white" id="alertTitle">แจ้งเตือน</h3>
+            <p class="text-slate-300 mb-6" id="alertMessage"></p>
+            <button onclick="closeModal('customAlertModal')" class="btn-primary w-full bg-gradient-to-r from-accent-cyan to-blue-500 shadow-glow-cyan">ตกลง</button>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="customConfirmModal" class="modal-overlay" style="z-index: 1000;">
+        <div class="modal-content glass-card p-6 relative max-w-sm text-center">
+            <div class="text-4xl mb-4 text-accent-red">🗑️</div>
+            <h3 class="text-xl font-bold mb-2 text-white">ยืนยันการลบ</h3>
+            <p class="text-slate-300 mb-6" id="confirmMessage"></p>
+            <div class="flex gap-3">
+                <button onclick="closeModal('customConfirmModal')" class="btn-secondary flex-1">ยกเลิก</button>
+                <button id="confirmActionBtn" class="btn-primary flex-1 bg-gradient-to-r from-accent-red to-red-600 shadow-glow-red">ลบข้อมูล</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Detail Popup Modal -->
+    <div id="dashDetailPopup" style="display:none; position:fixed; inset:0; z-index:900; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); overflow-y:auto;" onclick="closeDashPopup(event)">
+        <div id="dashDetailPopupInner" style="max-width:520px; width:92%; margin:5vh auto 5vh; position:relative;" onclick="event.stopPropagation()">
+            <div class="glass-card p-6 relative">
+                <button onclick="closeDashPopupDirect()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none z-10">&times;</button>
+                <div id="dashDetailPopupIcon" class="text-4xl mb-1">📊</div>
+                <h3 id="dashDetailPopupTitle" class="text-xl font-bold text-white mb-1">รายละเอียด</h3>
+                <p id="dashDetailPopupSubtitle" class="text-slate-400 text-sm mb-5"></p>
+                <div id="dashDetailPopupBody" class="space-y-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/js/app.js"></script>
+</body>
+</html>

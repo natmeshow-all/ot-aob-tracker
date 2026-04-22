@@ -1,0 +1,282 @@
+@import "tailwindcss";
+@config "../../tailwind.config.js";
+
+@import url('https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+    body {
+        @apply font-prompt bg-midnight text-slate-200 min-h-screen overflow-x-hidden;
+        /* Sleek radial gradient background */
+        background-image: 
+            radial-gradient(circle at 15% 50%, rgba(99, 102, 241, 0.15), transparent 25%),
+            radial-gradient(circle at 85% 30%, rgba(6, 182, 212, 0.15), transparent 25%);
+        background-attachment: fixed;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        @apply font-prompt font-semibold text-white;
+    }
+    
+    .number-font {
+        @apply font-prompt tracking-tight;
+    }
+}
+
+@layer components {
+
+    /* Premium Glassmorphism Card */
+    .glass-card {
+        @apply bg-glass-bg backdrop-blur-glass border border-glass-border rounded-glass shadow-xl shadow-inner transition-all duration-300;
+        box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 10px 30px -10px rgba(0,0,0,0.5);
+    }
+
+    .glass-card:hover {
+        @apply border-white/20;
+        box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.2), 0 20px 40px -10px rgba(0,0,0,0.6);
+    }
+
+    /* Buttons */
+    .btn-primary {
+        @apply relative overflow-hidden px-8 py-3 rounded-xl font-medium text-white transition-all duration-300 transform hover:-translate-y-1 active:translate-y-0;
+        background: linear-gradient(135deg, theme('colors.accent-indigo') 0%, theme('colors.accent-violet') 100%);
+        box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);
+    }
+
+    .btn-primary::after {
+        content: '';
+        @apply absolute top-0 left-0 w-full h-full bg-white/20 opacity-0 transition-opacity duration-300;
+    }
+
+    .btn-primary:hover::after {
+        @apply opacity-100;
+    }
+
+    .btn-secondary {
+        @apply px-8 py-3 bg-white/5 border border-white/10 rounded-xl font-medium text-slate-300 transition-all duration-300 hover:bg-white/10 hover:text-white hover:border-white/20;
+    }
+
+    /* Form Inputs */
+    .input-field {
+        @apply w-full px-4 py-3 bg-midnight/50 border border-white/10 rounded-xl text-white placeholder-slate-500 transition-all duration-300 font-prompt;
+    }
+
+    .input-field:focus {
+        @apply outline-none border-accent-cyan ring-1 ring-accent-cyan bg-midnight/80;
+        box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+    }
+
+    .input-label {
+        @apply block text-slate-400 text-sm font-medium mb-2;
+    }
+
+    /* Modals */
+    .modal-overlay {
+        @apply fixed inset-0 bg-midnight/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-opacity duration-300;
+    }
+    
+    .modal-overlay.active {
+        @apply opacity-100 pointer-events-auto;
+    }
+    
+    .modal-content {
+        @apply w-full max-w-lg transform scale-95 transition-transform duration-300;
+    }
+
+    .modal-overlay.active .modal-content {
+        @apply scale-100;
+    }
+
+    /* Record Items */
+    .record-item {
+        @apply bg-glass-bg backdrop-blur-glass border border-glass-border rounded-glass shadow-xl shadow-inner p-5 cursor-pointer flex justify-between items-center transition-all duration-300 mb-3 hover:bg-white/10;
+        box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 10px 30px -10px rgba(0,0,0,0.5);
+        border-left: 4px solid transparent;
+    }
+
+    .record-item:hover {
+        @apply translate-x-2 border-l-accent-cyan;
+    }
+
+    /* Toggle Buttons (Monthly/Yearly) */
+    .toggle-btn {
+        @apply px-6 py-2 rounded-lg font-medium text-slate-400 transition-all duration-300 hover:text-white;
+    }
+
+    .toggle-btn.active {
+        @apply bg-white/10 text-white shadow-inner border border-white/10;
+    }
+    
+    /* Nav Tabs */
+    .nav-tab {
+        @apply flex items-center gap-2 px-5 py-3 rounded-xl text-slate-400 transition-all duration-300 hover:bg-white/5;
+    }
+    
+    .nav-tab.active {
+        @apply bg-accent-indigo/20 text-accent-cyan border border-accent-indigo/30;
+        box-shadow: inset 0 0 20px rgba(99, 102, 241, 0.1);
+    }
+}
+
+@layer utilities {
+    .text-gradient-primary {
+        @apply bg-gradient-to-r from-accent-cyan via-accent-indigo to-accent-violet bg-clip-text text-transparent;
+    }
+    
+    .text-gradient-success {
+        @apply bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent;
+    }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+}
+::-webkit-scrollbar-track {
+    background: theme('colors.midnight');
+}
+::-webkit-scrollbar-thumb {
+    background: theme('colors.midnight-lighter');
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: theme('colors.slate.600');
+}
+
+/* Hide tab content by default */
+.tab-pane {
+    display: none;
+    animation: fadeIn 0.4s ease-out;
+}
+.tab-pane.active {
+    display: block;
+}
+
+/* Specific Calendar Styles */
+.calendar-day.has-ot {
+    @apply border border-accent-cyan/30 bg-accent-cyan/10;
+}
+.calendar-day.has-ot-medium {
+    @apply border-accent-indigo/50 bg-accent-indigo/20;
+}
+.calendar-day.has-ot-intense {
+    @apply border-accent-violet/70 bg-accent-violet/30;
+    box-shadow: 0 0 10px rgba(139, 92, 246, 0.3);
+}
+
+/* OT Multiplier Selector */
+.ot-multiplier-option {
+    cursor: pointer;
+    display: block;
+}
+
+.ot-multiplier-card {
+    border: 2px solid rgba(255,255,255,0.1);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+    background: rgba(255,255,255,0.04);
+    transition: all 0.2s ease;
+}
+
+.ot-multiplier-card:hover {
+    border-color: rgba(99,102,241,0.5);
+    background: rgba(99,102,241,0.08);
+}
+
+input[type="radio"]:checked + .ot-multiplier-card {
+    border-color: var(--color-accent-indigo);
+    background: rgba(99,102,241,0.15);
+    box-shadow: 0 0 0 1px var(--color-accent-indigo), 0 0 16px rgba(99,102,241,0.2);
+}
+
+.multiplier-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    font-family: 'Prompt', sans-serif;
+}
+
+.multiplier-badge-1 {
+    background: rgba(99,102,241,0.15);
+    color: #818cf8;
+    border: 1px solid rgba(99,102,241,0.3);
+}
+
+.multiplier-badge-15 {
+    background: rgba(6,182,212,0.15);
+    color: #22d3ee;
+    border: 1px solid rgba(6,182,212,0.3);
+}
+
+/* Premium Navigation Tabs */
+.nav-tab-premium {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: 'Prompt', sans-serif;
+    color: rgba(148,163,184,1);
+    background: transparent;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+    position: relative;
+    overflow: hidden;
+}
+
+.nav-tab-premium::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 12px;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    background: radial-gradient(ellipse at center, rgba(99,102,241,0.12) 0%, transparent 70%);
+}
+
+.nav-tab-premium:hover {
+    color: white;
+    background: rgba(255,255,255,0.06);
+}
+
+.nav-tab-premium:hover::before {
+    opacity: 1;
+}
+
+.nav-tab-premium .nav-tab-icon {
+    display: flex;
+    align-items: center;
+    opacity: 0.7;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.nav-tab-premium.active {
+    color: white;
+    background: linear-gradient(135deg, rgba(99,102,241,0.25) 0%, rgba(139,92,246,0.2) 100%);
+    border-color: rgba(99,102,241,0.4);
+    box-shadow: 0 0 20px rgba(99,102,241,0.15), inset 0 1px 0 rgba(255,255,255,0.1);
+    font-weight: 600;
+}
+
+.nav-tab-premium.active .nav-tab-icon {
+    opacity: 1;
+    transform: scale(1.1);
+    filter: drop-shadow(0 0 6px rgba(129,140,248,0.7));
+}
+
+.nav-tab-premium.active .nav-tab-label {
+    background: linear-gradient(135deg, #a5b4fc 0%, #c4b5fd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
