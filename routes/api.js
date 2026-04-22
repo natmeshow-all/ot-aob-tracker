@@ -7,6 +7,18 @@ const ProvidentFund = require('../models/ProvidentFund');
 const Transaction = require('../models/Transaction');
 const { JWT_SECRET } = require('./auth.local');
 
+// Health check (public, no auth needed)
+router.get('/health', (req, res) => {
+    const mongoose = require('mongoose');
+    const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+    const state = states[mongoose.connection.readyState] || 'unknown';
+    res.json({
+        status: state === 'connected' ? 'ok' : 'error',
+        database: state,
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Auth Middleware
 const requireAuth = (req, res, next) => {
     const authHeader = req.headers.authorization;
