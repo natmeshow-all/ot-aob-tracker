@@ -18,7 +18,7 @@ const apiRouter = require('./routes/api');
 app.use('/api/auth', authLocalRouter);
 app.use('/api', apiRouter);
 
-// Serve index.html for all routes (SPA)
+// Serve index.html for all non-API routes (SPA)
 app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -28,8 +28,9 @@ const PORT = process.env.PORT || 5000;
 setupDatabase().then(() => {
     app.listen(PORT, () => {
         console.log(`🚀 Server running on http://localhost:${PORT}`);
-        console.log('📱 Using Local JSON Database');
+        console.log('🍃 Connected to MongoDB Atlas');
     });
 }).catch(err => {
-    console.error('Failed to initialize database:', err);
+    console.error('❌ Failed to connect to MongoDB:', err.message);
+    process.exit(1);
 });
