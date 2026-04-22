@@ -1,6 +1,12 @@
 {
   "version": 2,
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
   "builds": [
+    {
+      "src": "public/**",
+      "use": "@vercel/static"
+    },
     {
       "src": "server.js",
       "use": "@vercel/node"
@@ -8,8 +14,20 @@
   ],
   "routes": [
     {
+      "src": "/css/(.*)",
+      "dest": "/public/css/$1"
+    },
+    {
+      "src": "/js/(.*)",
+      "dest": "/public/js/$1"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/server.js"
+    },
+    {
       "src": "/(.*)",
-      "dest": "server.js"
+      "dest": "/public/index.html"
     }
   ]
 }
