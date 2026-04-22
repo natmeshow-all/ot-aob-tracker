@@ -9,7 +9,18 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Connect to MongoDB before every request (cached after first connection)
+app.use(async (req, res, next) => {
+    try {
+        await setupDatabase();
+        next();
+    } catch (err) {
+        console.error('DB connection error:', err.message);
+        res.status(500).json({ error: 'Database connection failed: ' + err.message });
+    }
+});
 
 // Routes
 const authLocalRouter = require('./routes/auth.local').router;
@@ -23,14 +34,14 @@ app.get('*', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start server
-const PORT = process.env.PORT || 5000;
-setupDatabase().then(() => {
+// For local development only
+if (require.main === module) {
+    const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => {
         console.log(`🚀 Server running on http://localhost:${PORT}`);
-        console.log('🍃 Connected to MongoDB Atlas');
+        console.log('🍃 MongoDB Atlas connecting...');
     });
-}).catch(err => {
-    console.error('❌ Failed to connect to MongoDB:', err.message);
-    process.exit(1);
-});
+}
+
+// Required for Vercel serverless
+module.exports = app;
