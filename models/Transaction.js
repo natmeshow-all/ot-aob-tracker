@@ -8,6 +8,8 @@ const transactionSchema = new mongoose.Schema({
     amount: { type: Number, required: true, min: 0 },
     foodDays: { type: Number, default: null },
     foodRate: { type: Number, default: null },
+    nightShiftDays: { type: Number, default: null },
+    nightShiftRate: { type: Number, default: null },
     description: { type: String, default: '' },
     month: { type: Number, min: 1, max: 12 },
     year: { type: Number },

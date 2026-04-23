@@ -395,7 +395,7 @@ async function loadDashboard() {
 
 // --- Dashboard Popup ---
 const CAT_EMOJI = {
-    'เงินเดือน':'💰','ค่าอาหาร':'🍱','เบี้ยขยัน':'⭐','ค่าโบนัส':'🎁','อื่นๆ (รายรับ)':'📥',
+    'เงินเดือน':'💰','ค่าอาหาร':'🍱','ค่ากะกลางคืน':'🌙','เบี้ยขยัน':'⭐','ค่าโบนัส':'🎁','อื่นๆ (รายรับ)':'📥',
     'หักประกันสังคม':'🏥','หักกองทุนเลี้ยงชีพ':'🏦','หัก กยศ.':'📚','อื่นๆ (รายจ่าย)':'📤','OT':'⏱️'
 };
 
@@ -743,6 +743,7 @@ const TRANSACTION_CATEGORIES = {
     income: [
         { value: 'เงินเดือน', label: '💰 เงินเดือน' },
         { value: 'ค่าอาหาร', label: '🍱 ค่าอาหาร' },
+        { value: 'ค่ากะกลางคืน', label: '🌙 ค่ากะกลางคืน' },
         { value: 'เบี้ยขยัน', label: '⭐ เบี้ยขยัน' },
         { value: 'ค่าโบนัส', label: '🎁 ค่าโบนัส' },
         { value: 'อื่นๆ (รายรับ)', label: '📥 อื่นๆ' }
@@ -766,10 +767,12 @@ window.updateTransactionCategories = function() {
 window.onCategoryChange = function() {
     const category = document.getElementById('transactionCategory')?.value;
     const isFood = category === 'ค่าอาหาร';
+    const isNightShift = category === 'ค่ากะกลางคืน';
     const foodFields = document.getElementById('foodAllowanceFields');
+    const nightShiftFields = document.getElementById('nightShiftFields');
     const amountField = document.getElementById('amountField');
     const amountInput = document.getElementById('transactionAmount');
-    if (!foodFields || !amountField || !amountInput) return;
+    if (!foodFields || !nightShiftFields || !amountField || !amountInput) return;
 
     let savedPref = {};
     if (!currentEditTransactionId && currentUser) {
@@ -779,6 +782,7 @@ window.onCategoryChange = function() {
 
     if (isFood) {
         foodFields.style.display = 'block';
+        nightShiftFields.style.display = 'none';
         amountField.style.display = 'none';
         amountInput.removeAttribute('required');
         
@@ -792,8 +796,25 @@ window.onCategoryChange = function() {
                 document.getElementById('foodAmountDisplay').textContent = '฿0.00';
             }
         }
+    } else if (isNightShift) {
+        foodFields.style.display = 'none';
+        nightShiftFields.style.display = 'block';
+        amountField.style.display = 'none';
+        amountInput.removeAttribute('required');
+        
+        if (!currentEditTransactionId) {
+            document.getElementById('nightShiftDays').value = savedPref.nightShiftDays || '';
+            document.getElementById('nightShiftRate').value = savedPref.nightShiftRate || '';
+            document.getElementById('transactionDescription').value = savedPref.description || '';
+            if (savedPref.nightShiftDays && savedPref.nightShiftRate) {
+                calculateNightShiftAmount();
+            } else {
+                document.getElementById('nightShiftAmountDisplay').textContent = '฿0.00';
+            }
+        }
     } else {
         foodFields.style.display = 'none';
+        nightShiftFields.style.display = 'none';
         amountField.style.display = 'block';
         amountInput.setAttribute('required', '');
         
@@ -810,6 +831,13 @@ window.calculateFoodAmount = function() {
     const rate = parseFloat(document.getElementById('foodRate').value) || 0;
     const total = days * rate;
     document.getElementById('foodAmountDisplay').textContent = formatCurrency(total);
+};
+
+window.calculateNightShiftAmount = function() {
+    const days = parseFloat(document.getElementById('nightShiftDays').value) || 0;
+    const rate = parseFloat(document.getElementById('nightShiftRate').value) || 0;
+    const total = days * rate;
+    document.getElementById('nightShiftAmountDisplay').textContent = formatCurrency(total);
 };
 
 window.closeModal = function(modalId) {
@@ -1034,10 +1062,23 @@ async function loadProvidentFund() {
                 </div>
             `;
 
-            if (contributions.length > 0) {
+            let displayContributions = contributions;
+            if (currentView === 'monthly') {
+                displayContributions = contributions.filter(c => {
+                    const d = new Date(c.date);
+                    return d.getFullYear() === currentYear && d.getMonth() + 1 === currentMonth;
+                });
+            } else if (currentView === 'yearly') {
+                displayContributions = contributions.filter(c => {
+                    const d = new Date(c.date);
+                    return d.getFullYear() === currentYear;
+                });
+            }
+
+            if (displayContributions.length > 0) {
                 // Sort by date descending
-                contributions.sort((a, b) => new Date(b.date) - new Date(a.date));
-                listDiv.innerHTML = contributions.map(c => `
+                displayContributions.sort((a, b) => new Date(b.date) - new Date(a.date));
+                listDiv.innerHTML = displayContributions.map(c => `
                     <div class="record-item">
                         <div class="record-info">
                             <div class="record-date">${formatDate(c.date)}</div>
@@ -1047,15 +1088,16 @@ async function loadProvidentFund() {
                             </div>
                             <div class="text-sm text-slate-400 mt-1">ฐานเงินเดือน: ${formatCurrency(c.baseSalary || 0)}</div>
                             ${c.description ? `<div class="record-subtitle mt-1">${c.description}</div>` : ''}
-                            <div class="record-actions">
-                                <button class="record-btn delete" onclick="deleteFundContribution('${c.id}')">ลบ</button>
+                            <div class="record-actions mt-2">
+                                <button class="record-btn text-accent-cyan hover:text-white" onclick="editFundContribution('${c._id || c.id}')">แก้ไข</button>
+                                <button class="record-btn delete" onclick="deleteFundContribution('${c._id || c.id}')">ลบ</button>
                             </div>
                         </div>
                         <div class="record-amount text-accent-violet">+${formatCurrency((c.employeeAmount || 0) + (c.employerAmount || 0))}</div>
                     </div>
                 `).join('');
             } else {
-                listDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💰</div><div class="empty-state-text">ยังไม่มีประวัติการส่งเงินสะสม<br>กด + เพิ่มยอดสะสม เพื่อบันทึกรายเดือน</div></div>';
+                listDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">💰</div><div class="empty-state-text">ไม่มีข้อมูลยอดสะสมในช่วงเวลานี้</div></div>';
             }
         } else {
             infoDiv.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🏦</div><div class="empty-state-text">กรุณาตั้งค่าบัญชี & รอบตัดบิลก่อน</div></div>';
@@ -1181,6 +1223,65 @@ window.saveCombinedFund = async function(event) {
     }
 };
 
+let currentEditFundContribId = null;
+
+window.editFundContribution = async function(id) {
+    try {
+        const fund = await apiFetch('/api/fund');
+        if (!fund || !fund.contributions) return;
+        const c = fund.contributions.find(x => x._id === id || x.id === id);
+        if (!c) return;
+
+        currentEditFundContribId = id;
+        document.getElementById('editFundDate').value = new Date(c.date).toISOString().split('T')[0];
+        document.getElementById('editFundBaseSalary').value = c.baseSalary;
+        document.getElementById('editFundEmpPercent').value = c.employeePercent;
+        document.getElementById('editFundEmpRPercent').value = c.employerPercent;
+        document.getElementById('editFundDescription').value = c.description || '';
+        calcEditFund();
+
+        document.getElementById('editFundContribModal').classList.add('active');
+    } catch (e) {
+        showAlert('ผิดพลาด', 'ดึงข้อมูลไม่สำเร็จ', 'error');
+    }
+};
+
+window.calcEditFund = function() {
+    const base = parseFloat(document.getElementById('editFundBaseSalary').value) || 0;
+    const empP = parseFloat(document.getElementById('editFundEmpPercent').value) || 0;
+    const empRP = parseFloat(document.getElementById('editFundEmpRPercent').value) || 0;
+    const empAmt = base * (empP / 100);
+    const empRAmt = base * (empRP / 100);
+    document.getElementById('editFundEmpAmountDisplay').textContent = formatCurrency(empAmt);
+    document.getElementById('editFundEmpRAmountDisplay').textContent = formatCurrency(empRAmt);
+};
+
+window.saveEditFundContrib = async function(e) {
+    e.preventDefault();
+    const baseSalary = parseFloat(document.getElementById('editFundBaseSalary').value) || 0;
+    const employeePercent = parseFloat(document.getElementById('editFundEmpPercent').value) || 0;
+    const employerPercent = parseFloat(document.getElementById('editFundEmpRPercent').value) || 0;
+    const date = new Date(document.getElementById('editFundDate').value).toISOString();
+    const description = document.getElementById('editFundDescription').value;
+
+    const employeeAmount = baseSalary * (employeePercent / 100);
+    const employerAmount = baseSalary * (employerPercent / 100);
+
+    try {
+        await apiFetch(`/api/fund/contributions/${currentEditFundContribId}`, {
+            method: 'PUT',
+            body: JSON.stringify({
+                date, baseSalary, employeePercent, employerPercent, employeeAmount, employerAmount, description
+            })
+        });
+        closeModal('editFundContribModal');
+        loadProvidentFund();
+        loadDashboard();
+    } catch (err) {
+        showAlert('ผิดพลาด', 'บันทึกไม่สำเร็จ: ' + err.message, 'error');
+    }
+};
+
 window.deleteFundContribution = function(id) {
     showConfirm('ยืนยันการลบ', 'ต้องการลบรายการสะสมกองทุนนี้ใช่หรือไม่?', async () => {
         try {
@@ -1228,6 +1329,9 @@ async function loadTransactions(filterType) {
                         ${trans.category === 'ค่าอาหาร' && trans.foodDays != null
                             ? `<div class="text-xs text-slate-400 mt-1">🍱 ${trans.foodDays} วัน × ${formatCurrency(trans.foodRate)}/วัน</div>`
                             : ''}
+                        ${trans.category === 'ค่ากะกลางคืน' && trans.nightShiftDays != null
+                            ? `<div class="text-xs text-slate-400 mt-1">🌙 ${trans.nightShiftDays} วัน × ${formatCurrency(trans.nightShiftRate)}/วัน</div>`
+                            : ''}
                         ${trans.description ? `<div class="record-subtitle">${trans.description}</div>` : ''}
                         <div class="record-actions">
                             <button class="record-btn text-accent-cyan hover:text-white" onclick="editTransaction('${trans.id}')">แก้ไข</button>
@@ -1264,6 +1368,8 @@ window.saveTransaction = async function(event) {
     let amount;
     let foodDays = null;
     let foodRate = null;
+    let nightShiftDays = null;
+    let nightShiftRate = null;
 
     if (category === 'ค่าอาหาร') {
         foodDays = parseFloat(document.getElementById('foodDays').value) || 0;
@@ -1271,6 +1377,14 @@ window.saveTransaction = async function(event) {
         amount = foodDays * foodRate;
         if (foodDays <= 0 || foodRate <= 0) {
             showAlert('ข้อมูลไม่ครบ', 'กรุณากรอกจำนวนวันและราคาต่อวันให้ถูกต้อง', 'error');
+            return;
+        }
+    } else if (category === 'ค่ากะกลางคืน') {
+        nightShiftDays = parseFloat(document.getElementById('nightShiftDays').value) || 0;
+        nightShiftRate = parseFloat(document.getElementById('nightShiftRate').value) || 0;
+        amount = nightShiftDays * nightShiftRate;
+        if (nightShiftDays <= 0 || nightShiftRate <= 0) {
+            showAlert('ข้อมูลไม่ครบ', 'กรุณากรอกจำนวนวันและค่ากะต่อวันให้ถูกต้อง', 'error');
             return;
         }
     } else {
@@ -1284,6 +1398,8 @@ window.saveTransaction = async function(event) {
         amount,
         foodDays,
         foodRate,
+        nightShiftDays,
+        nightShiftRate,
         description: document.getElementById('transactionDescription').value,
         month: date.getMonth() + 1,
         year: date.getFullYear()
@@ -1298,7 +1414,7 @@ window.saveTransaction = async function(event) {
             // Save transaction prefs per category
             if (currentUser) {
                 const prefs = JSON.parse(localStorage.getItem('txn_prefs_' + currentUser.id) || '{}');
-                prefs[category] = { amount, foodDays, foodRate, description: data.description };
+                prefs[category] = { amount, foodDays, foodRate, nightShiftDays, nightShiftRate, description: data.description };
                 localStorage.setItem('txn_prefs_' + currentUser.id, JSON.stringify(prefs));
             }
         }
@@ -1331,6 +1447,10 @@ window.editTransaction = async function(id) {
                 document.getElementById('foodDays').value = trans.foodDays;
                 document.getElementById('foodRate').value = trans.foodRate;
                 calculateFoodAmount();
+            } else if (trans.category === 'ค่ากะกลางคืน' && trans.nightShiftDays != null) {
+                document.getElementById('nightShiftDays').value = trans.nightShiftDays;
+                document.getElementById('nightShiftRate').value = trans.nightShiftRate;
+                calculateNightShiftAmount();
             } else {
                 document.getElementById('transactionAmount').value = trans.amount;
             }

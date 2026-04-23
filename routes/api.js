@@ -184,6 +184,42 @@ router.post('/fund/contributions', async (req, res) => {
     }
 });
 
+router.put('/fund/contributions/:id', async (req, res) => {
+    try {
+        const { date, baseSalary, employeePercent, employerPercent, employeeAmount, employerAmount, description } = req.body;
+        const fund = await ProvidentFund.findOne({ userId: toId(req.user.id) });
+        if (!fund) return res.status(400).json({ error: 'Fund not found' });
+
+        const contribution = fund.contributions.id(req.params.id);
+        if (!contribution) return res.status(404).json({ error: 'Contribution not found' });
+
+        // Check duplicate month, ignoring the current contribution
+        const targetDate = new Date(date);
+        const isDuplicate = fund.contributions.some(c => 
+            c._id.toString() !== req.params.id && 
+            new Date(c.date).getMonth() === targetDate.getMonth() && 
+            new Date(c.date).getFullYear() === targetDate.getFullYear()
+        );
+        if (isDuplicate) {
+            return res.status(400).json({ error: 'มีการบันทึกยอดสะสมของเดือนนี้ไปแล้ว' });
+        }
+
+        contribution.date = date;
+        contribution.baseSalary = baseSalary;
+        contribution.employeePercent = employeePercent;
+        contribution.employerPercent = employerPercent;
+        contribution.employeeAmount = employeeAmount;
+        contribution.employerAmount = employerAmount;
+        contribution.totalMonthly = employeeAmount + employerAmount;
+        contribution.description = description || '';
+
+        await fund.save();
+        res.json({ success: true, contribution });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.delete('/fund/contributions/:id', async (req, res) => {
     try {
         const fund = await ProvidentFund.findOne({ userId: toId(req.user.id) });

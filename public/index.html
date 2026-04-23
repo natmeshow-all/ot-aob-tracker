@@ -498,6 +498,56 @@
         </div>
     </div>
 
+    <!-- Edit Fund Contribution Modal -->
+    <div id="editFundContribModal" class="modal-overlay">
+        <div class="modal-content glass-card p-8 relative">
+            <button onclick="closeModal('editFundContribModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">แก้ไขรายการสะสม</h3>
+            <form onsubmit="saveEditFundContrib(event)">
+                <div class="space-y-4">
+                    <div>
+                        <label class="input-label">วันที่ของรายการสะสม</label>
+                        <input type="date" id="editFundDate" class="input-field" required>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="input-label">ฐานเงินเดือน (฿)</label>
+                            <input type="number" id="editFundBaseSalary" step="0.01" min="0" class="input-field number-font" oninput="calcEditFund()" required>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="input-label">ส่วนพนักงาน (%)</label>
+                            <input type="number" id="editFundEmpPercent" step="0.1" min="0" class="input-field number-font" oninput="calcEditFund()" required>
+                        </div>
+                        <div>
+                            <label class="input-label">ส่วนนายจ้าง (%)</label>
+                            <input type="number" id="editFundEmpRPercent" step="0.1" min="0" class="input-field number-font" oninput="calcEditFund()" required>
+                        </div>
+                    </div>
+                    <div class="bg-black/20 p-4 rounded-lg border border-white/10 space-y-2">
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-slate-300">ยอดหักส่วนพนักงาน</span>
+                            <span id="editFundEmpAmountDisplay" class="font-prompt font-bold text-accent-cyan text-lg">฿0.00</span>
+                        </div>
+                        <div class="flex justify-between items-center text-sm">
+                            <span class="text-slate-300">ยอดสมทบส่วนนายจ้าง</span>
+                            <span id="editFundEmpRAmountDisplay" class="font-prompt font-bold text-income text-lg">฿0.00</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="input-label">หมายเหตุ (ถ้ามี)</label>
+                        <input type="text" id="editFundDescription" class="input-field" placeholder="เช่น โบนัสสมทบพิเศษ">
+                    </div>
+                </div>
+                <div class="mt-8 flex gap-3">
+                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('editFundContribModal')">ยกเลิก</button>
+                    <button type="submit" class="btn-primary flex-1 shadow-glow-cyan bg-gradient-to-r from-accent-cyan to-blue-500">บันทึก</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Transaction Modal -->
     <div id="transactionModal" class="modal-overlay">
         <div class="modal-content glass-card p-8 relative">
@@ -523,6 +573,7 @@
                         <select id="transactionCategory" class="input-field bg-midnight" onchange="onCategoryChange()" required>
                             <option value="เงินเดือน">💰 เงินเดือน</option>
                             <option value="ค่าอาหาร">🍱 ค่าอาหาร</option>
+                            <option value="ค่ากะกลางคืน">🌙 ค่ากะกลางคืน</option>
                             <option value="เบี้ยขยัน">⭐ เบี้ยขยัน</option>
                             <option value="ค่าโบนัส">🎁 ค่าโบนัส</option>
                             <option value="อื่นๆ (รายรับ)">📥 อื่นๆ</option>
@@ -543,12 +594,30 @@
                         </div>
                         <div class="bg-black/20 p-3 rounded-lg border border-white/10 mt-2 flex justify-between items-center">
                             <span class="text-slate-300 text-sm">ยอดรวมค่าอาหาร</span>
-                            <span id="foodAmountDisplay" class="font-prompt font-bold text-income text-lg">฼0.00</span>
+                            <span id="foodAmountDisplay" class="font-prompt font-bold text-income text-lg">฿0.00</span>
+                        </div>
+                    </div>
+
+                    <!-- Night Shift fields (shown only when ค่ากะกลางคืน is selected) -->
+                    <div id="nightShiftFields" style="display:none;">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="input-label">จำนวนวันที่เข้ากะ</label>
+                                <input type="number" id="nightShiftDays" min="0" step="1" class="input-field number-font" placeholder="เช่น 10" oninput="calculateNightShiftAmount()">
+                            </div>
+                            <div>
+                                <label class="input-label">ค่ากะต่อวัน (บาท)</label>
+                                <input type="number" id="nightShiftRate" min="0" step="0.01" class="input-field number-font" placeholder="เช่น 100" oninput="calculateNightShiftAmount()">
+                            </div>
+                        </div>
+                        <div class="bg-black/20 p-3 rounded-lg border border-white/10 mt-2 flex justify-between items-center">
+                            <span class="text-slate-300 text-sm">ยอดรวมค่ากะกลางคืน</span>
+                            <span id="nightShiftAmountDisplay" class="font-prompt font-bold text-income text-lg">฿0.00</span>
                         </div>
                     </div>
 
                     <div id="amountField">
-                        <label class="input-label">จำนวนเงิน (฼)</label>
+                        <label class="input-label">จำนวนเงิน (฿)</label>
                         <input type="number" id="transactionAmount" step="0.01" min="0" class="input-field number-font" required>
                     </div>
                     <div>
