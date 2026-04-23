@@ -468,11 +468,19 @@ window.openDashPopup = function(type) {
         iconVal = '🏦'; titleVal = 'กองทุนสำรองเลี้ยงชีพ'; subtitleVal = fd.duration || '-';
         bodyHTML = (!fd || fd.total === 0) ? '<div class="text-slate-500 text-sm text-center py-4">ยังไม่มีข้อมูลกองทุน</div>' : `
         <div class="space-y-3">
-            <div class="flex justify-between text-sm"><span class="text-slate-400">ส่วนพนักงานสะสม</span><span class="text-accent-cyan font-semibold">${formatCurrency(fd.employeeTotal || 0)}</span></div>
-            <div class="flex justify-between text-sm"><span class="text-slate-400">ส่วนนายจ้างสมทบ</span><span class="text-income font-semibold">${formatCurrency(fd.employerTotal || 0)}</span></div>
-            <div class="border-t border-white/10 pt-2 flex justify-between text-sm"><span class="text-slate-300 font-medium">รวมสะสมทั้งหมด</span><span class="font-prompt font-bold text-accent-violet">${formatCurrency(fd.total || 0)}</span></div>
-            <div class="flex justify-between text-sm"><span class="text-slate-400">ระยะเวลาสะสม</span><span class="text-slate-300">${fd.duration || '-'}</span></div>
-            <div class="flex justify-between text-sm"><span class="text-slate-400">จำนวนเดือนที่ส่ง</span><span class="text-slate-300">${fd.totalMonths || 0} เดือน</span></div>
+            <div class="text-xs text-slate-500 font-medium uppercase tracking-wide border-b border-white/5 pb-1 mb-2">เฉพาะปี ${currentYear + 543}</div>
+            <div class="flex justify-between text-sm"><span class="text-slate-400">พนักงานสะสม (ปีนี้)</span><span class="text-accent-cyan font-semibold">${formatCurrency(fd.yearlyEmployeeTotal || 0)}</span></div>
+            <div class="flex justify-between text-sm"><span class="text-slate-400">นายจ้างสมทบ (ปีนี้)</span><span class="text-income font-semibold">${formatCurrency(fd.yearlyEmployerTotal || 0)}</span></div>
+            <div class="flex justify-between text-sm"><span class="text-slate-400">รวมของปีนี้ (${fd.yearlyMonths || 0} เดือน)</span><span class="font-prompt font-bold text-white">${formatCurrency(fd.yearlyTotal || 0)}</span></div>
+            
+            <div class="text-xs text-slate-500 font-medium uppercase tracking-wide border-b border-white/5 pb-1 mt-4 mb-2">ยอดสะสมสุทธิทั้งหมด</div>
+            <div class="flex justify-between text-sm"><span class="text-slate-400">ส่วนพนักงานสุทธิ</span><span class="text-accent-cyan font-semibold">${formatCurrency(fd.employeeTotal || 0)}</span></div>
+            <div class="flex justify-between text-sm"><span class="text-slate-400">ส่วนนายจ้างสุทธิ</span><span class="text-income font-semibold">${formatCurrency(fd.employerTotal || 0)}</span></div>
+            <div class="flex justify-between text-sm"><span class="text-slate-400">ระยะเวลาส่งกองทุน</span><span class="text-slate-300">${fd.duration || '-'} (${fd.totalMonths || 0} เดือน)</span></div>
+            <div class="bg-black/20 p-3 rounded-lg border border-accent-violet/30 mt-2 flex justify-between items-center text-sm">
+                <span class="text-slate-300 font-medium">รวมสุทธิทั้งหมด</span>
+                <span class="font-prompt font-bold text-lg text-accent-violet">${formatCurrency(fd.total || 0)}</span>
+            </div>
         </div>`;
     } else if (type === 'recent') {
         iconVal = '🕐'; titleVal = 'รายการทั้งหมด'; subtitleVal = 'เรียงตามวันที่ล่าสุด';
@@ -989,6 +997,12 @@ async function getFundSummary() {
         else if (years > 0) duration = `${years} ปี`;
         else duration = `${totalMonths} เดือน`;
 
+        const yearlyFiltered = allContributions.filter(c => new Date(c.date).getFullYear() === currentYear);
+        const yearlyEmployeeTotal = yearlyFiltered.reduce((sum, c) => sum + (c.employeeAmount || 0), 0);
+        const yearlyEmployerTotal = yearlyFiltered.reduce((sum, c) => sum + (c.employerAmount || 0), 0);
+        const yearlyTotal = yearlyEmployeeTotal + yearlyEmployerTotal;
+        const yearlyMonths = yearlyFiltered.length;
+
         return {
             total: cumulativeTotal,
             employeeTotal,
@@ -996,7 +1010,11 @@ async function getFundSummary() {
             totalMonths,
             duration,
             years,
-            periodEmployeeAmount
+            periodEmployeeAmount,
+            yearlyEmployeeTotal,
+            yearlyEmployerTotal,
+            yearlyTotal,
+            yearlyMonths
         };
     } catch (error) {
         return { total: 0, employeeTotal: 0, employerTotal: 0, totalMonths: 0, duration: '-', years: 0, periodEmployeeAmount: 0 };
