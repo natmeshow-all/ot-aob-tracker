@@ -278,7 +278,8 @@ function loadCurrentTab() {
         case 'dashboard': loadDashboard(); break;
         case 'ot': loadOTRecords(); break;
         case 'fund': loadProvidentFund(); break;
-        case 'transactions': loadTransactions(); break;
+        case 'income': loadTransactions('income'); break;
+        case 'expense': loadTransactions('expense'); break;
     }
 }
 
@@ -642,8 +643,15 @@ async function loadOTRecords() {
         if (records.length > 0) {
             list.innerHTML = records.map(record => {
                 const mult = record.multiplier || 1;
-                const badgeClass = mult >= 1.5 ? 'multiplier-badge multiplier-badge-15' : 'multiplier-badge multiplier-badge-1';
-                const badgeText = mult >= 1.5 ? '×1.5 วันหยุด' : '×1 ปกติ';
+                let badgeClass = 'multiplier-badge multiplier-badge-1';
+                let badgeText = '×1 ปกติ';
+                if (mult >= 3) {
+                    badgeClass = 'multiplier-badge multiplier-badge-3';
+                    badgeText = '×3 วันหยุดพิเศษ';
+                } else if (mult >= 1.5) {
+                    badgeClass = 'multiplier-badge multiplier-badge-15';
+                    badgeText = '×1.5 ล่วงเวลา';
+                }
                 return `
                 <div class="record-item">
                     <div class="record-info">
@@ -685,7 +693,7 @@ async function loadOTRecords() {
     }
 }
 
-window.openModal = function(modalId) {
+window.openModal = function(modalId, type) {
     document.getElementById(modalId).classList.add('active');
 
     // Helper: get default date for the currently selected month/year
@@ -693,7 +701,8 @@ window.openModal = function(modalId) {
         const now = new Date();
         const isCurrentPeriod = (now.getFullYear() === currentYear && now.getMonth() + 1 === currentMonth);
         if (isCurrentPeriod) {
-            return now.toISOString().split('T')[0]; // today
+            // Local timezone date format
+            return new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().split('T')[0];
         }
         // Use 1st day of selected month
         const m = String(currentMonth).padStart(2, '0');
@@ -721,14 +730,12 @@ window.openModal = function(modalId) {
     } else if (modalId === 'transactionModal') {
         currentEditTransactionId = null;
         const modalTitle = document.getElementById('transactionModal').querySelector('h3');
-        if (modalTitle) modalTitle.textContent = 'เพิ่มรายรับ - รายจ่าย';
+        if (modalTitle) modalTitle.textContent = type === 'income' ? 'เพิ่มรายรับ' : 'เพิ่มรายจ่าย';
         document.getElementById('transactionDate').value = getDefaultDate();
-        document.getElementById('transactionType').value = 'income';
+        document.getElementById('transactionType').value = type || 'income';
         document.getElementById('transactionAmount').value = '';
         document.getElementById('transactionDescription').value = '';
         updateTransactionCategories();
-    } else if (modalId === 'fundModal') {
-        loadFundSettingsData();
     }
 };
 
@@ -742,7 +749,6 @@ const TRANSACTION_CATEGORIES = {
     ],
     expense: [
         { value: '\u0e2b\u0e31\u0e01\u0e1b\u0e23\u0e30\u0e01\u0e31\u0e19\u0e2a\u0e31\u0e07\u0e04\u0e21', label: '🏥 หักประกันสังคม' },
-        { value: '\u0e2b\u0e31\u0e01\u0e01\u0e2d\u0e07\u0e17\u0e38\u0e19\u0e40\u0e25\u0e35\u0e49\u0e22\u0e07\u0e0a\u0e35\u0e1e', label: '🏦 หักกองทุนเลี้ยงชีพ' },
         { value: '\u0e2b\u0e31\u0e01 \u0e01\u0e22\u0e28.', label: '📚 หัก กยศ.' },
         { value: '\u0e2d\u0e37\u0e48\u0e19\u0e46 (\u0e23\u0e32\u0e22\u0e08\u0e48\u0e32\u0e22)', label: '📤 อื่นๆ' }
     ]
@@ -1059,113 +1065,117 @@ async function loadProvidentFund() {
     } catch (error) {}
 }
 
-async function loadFundSettingsData() {
-    try {
-        const fund = await apiFetch('/api/fund');
-        if (fund) {
-            document.getElementById('fundSalary').value = fund.baseSalary;
-            document.getElementById('fundEmployeePercent').value = fund.employeePercentage;
-            document.getElementById('fundStartDate').value = new Date(fund.startDate).toISOString().split('T')[0];
-            document.getElementById('fundCutoffDate').value = fund.cutoffDate || 0;
-        } else {
-            document.getElementById('fundStartDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('fundCutoffDate').value = 0;
-        }
-    } catch (error) {}
-}
-
-window.saveFundSettings = async function(event) {
-    event.preventDefault();
-    const startDateValue = document.getElementById('fundStartDate').value;
-    const data = {
-        baseSalary: parseFloat(document.getElementById('fundSalary').value),
-        employeePercentage: parseFloat(document.getElementById('fundEmployeePercent').value),
-        employerPercentage: 5,
-        startDate: new Date(startDateValue).toISOString(),
-        cutoffDate: parseInt(document.getElementById('fundCutoffDate').value) || 0
-    };
-
-    try {
-        await apiFetch('/api/fund', { method: 'POST', body: JSON.stringify(data) });
-        await loadUserSettings();
-        updateDateDisplay(); // Refresh period display
-        closeModal('fundModal');
-        loadProvidentFund();
-        loadDashboard();
-        loadOTRecords(); // Refresh to apply new cutoff
-        loadTransactions();
-    } catch (error) {
-        showAlert('ผิดพลาด', 'บันทึกไม่สำเร็จ: ' + error.message, 'error');
-    }
-};
-
-window.openFundContributionModal = async function() {
-    document.getElementById('fundContributionModal').classList.add('active');
-    document.getElementById('fcDate').value = new Date().toISOString().split('T')[0];
+window.openCombinedFundModal = async function() {
+    document.getElementById('combinedFundModal').classList.add('active');
     
+    // Checkbox default checked
+    const check = document.getElementById('saveContribCheck');
+    check.checked = true;
+    toggleContribFields({ target: check });
+
+    // Load existing fund data
     try {
         const fund = await apiFetch('/api/fund');
         let latestContribution = null;
-        
         if (fund && fund.contributions && fund.contributions.length > 0) {
             const sorted = [...fund.contributions].sort((a, b) => new Date(b.date) - new Date(a.date));
             latestContribution = sorted[0];
         }
 
-        if (latestContribution) {
-            document.getElementById('fcBaseSalary').value = latestContribution.baseSalary || 0;
-            document.getElementById('fcEmpPercent').value = latestContribution.employeePercent || 5;
-            document.getElementById('fcEmpRPercent').value = latestContribution.employerPercent || 5;
-        } else if (currentUserSettings && currentUserSettings.baseSalary) {
-            document.getElementById('fcBaseSalary').value = currentUserSettings.baseSalary;
-            document.getElementById('fcEmpPercent').value = currentUserSettings.employeePercentage || 5;
-            document.getElementById('fcEmpRPercent').value = currentUserSettings.employerPercentage || 5;
+        // Set Date to today
+        document.getElementById('combDate').value = new Date().toISOString().split('T')[0];
+        
+        if (fund) {
+            document.getElementById('combStartDate').value = fund.startDate ? new Date(fund.startDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+            document.getElementById('combCutoffDate').value = fund.cutoffDate || 0;
+            
+            // For salary/percents, prefer latest contribution, else fund settings
+            document.getElementById('combBaseSalary').value = latestContribution ? latestContribution.baseSalary : (fund.baseSalary || 0);
+            document.getElementById('combEmpPercent').value = latestContribution ? latestContribution.employeePercent : (fund.employeePercentage || 5);
+            document.getElementById('combEmpRPercent').value = latestContribution ? latestContribution.employerPercent : (fund.employerPercentage || 5);
         } else {
-            document.getElementById('fcBaseSalary').value = 0;
-            document.getElementById('fcEmpPercent').value = 5;
-            document.getElementById('fcEmpRPercent').value = 5;
+            document.getElementById('combStartDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('combCutoffDate').value = 0;
+            document.getElementById('combBaseSalary').value = 0;
+            document.getElementById('combEmpPercent').value = 5;
+            document.getElementById('combEmpRPercent').value = 5;
         }
-        calculateFundAmounts();
-    } catch (error) {
-        console.error('Error loading fund info for modal', error);
-    }
-};
+        
+        document.getElementById('combDescription').value = '';
+        calcCombFund();
+    } catch(e) {}
+}
 
-window.calculateFundAmounts = function() {
-    const base = parseFloat(document.getElementById('fcBaseSalary').value) || 0;
-    const empP = parseFloat(document.getElementById('fcEmpPercent').value) || 0;
-    const empRP = parseFloat(document.getElementById('fcEmpRPercent').value) || 0;
+window.toggleContribFields = function(e) {
+    const isChecked = e.target ? e.target.checked : e.checked;
+    document.getElementById('contribFieldsWrapper').style.display = isChecked ? 'block' : 'none';
+    
+    // Toggle required fields
+    if (isChecked) {
+        document.getElementById('combDate').setAttribute('required', 'true');
+    } else {
+        document.getElementById('combDate').removeAttribute('required');
+    }
+}
+
+window.calcCombFund = function() {
+    const base = parseFloat(document.getElementById('combBaseSalary').value) || 0;
+    const empP = parseFloat(document.getElementById('combEmpPercent').value) || 0;
+    const empRP = parseFloat(document.getElementById('combEmpRPercent').value) || 0;
 
     const empAmt = base * (empP / 100);
     const empRAmt = base * (empRP / 100);
 
-    document.getElementById('fcEmpAmountDisplay').textContent = formatCurrency(empAmt);
-    document.getElementById('fcEmpRAmountDisplay').textContent = formatCurrency(empRAmt);
-};
+    document.getElementById('combEmpAmountDisplay').textContent = formatCurrency(empAmt);
+    document.getElementById('combEmpRAmountDisplay').textContent = formatCurrency(empRAmt);
+}
 
-window.saveFundContribution = async function(event) {
+window.saveCombinedFund = async function(event) {
     event.preventDefault();
     if (!currentUser) return;
 
-    const base = parseFloat(document.getElementById('fcBaseSalary').value) || 0;
-    const empP = parseFloat(document.getElementById('fcEmpPercent').value) || 0;
-    const empRP = parseFloat(document.getElementById('fcEmpRPercent').value) || 0;
-
-    const data = {
-        date: new Date(document.getElementById('fcDate').value).toISOString(),
-        baseSalary: base,
-        employeePercent: empP,
-        employerPercent: empRP,
-        employeeAmount: base * (empP / 100),
-        employerAmount: base * (empRP / 100),
-        description: document.getElementById('fcDescription').value
-    };
+    const baseSalary = parseFloat(document.getElementById('combBaseSalary').value) || 0;
+    const employeePercentage = parseFloat(document.getElementById('combEmpPercent').value) || 0;
+    const employerPercentage = parseFloat(document.getElementById('combEmpRPercent').value) || 0;
+    const startDate = new Date(document.getElementById('combStartDate').value).toISOString();
+    const cutoffDate = parseInt(document.getElementById('combCutoffDate').value) || 0;
+    const saveContrib = document.getElementById('saveContribCheck').checked;
 
     try {
-        await apiFetch('/api/fund/contributions', { method: 'POST', body: JSON.stringify(data) });
-        closeModal('fundContributionModal');
+        // 1. Save Settings
+        await apiFetch('/api/fund', {
+            method: 'POST',
+            body: JSON.stringify({ baseSalary, employeePercentage, employerPercentage, startDate, cutoffDate })
+        });
+
+        // 2. Save Contribution if checked
+        if (saveContrib) {
+            const date = new Date(document.getElementById('combDate').value).toISOString();
+            const description = document.getElementById('combDescription').value;
+            
+            await apiFetch('/api/fund/contributions', {
+                method: 'POST',
+                body: JSON.stringify({
+                    date,
+                    baseSalary,
+                    employeePercent: employeePercentage,
+                    employerPercent: employerPercentage,
+                    employeeAmount: baseSalary * (employeePercentage / 100),
+                    employerAmount: baseSalary * (employerPercentage / 100),
+                    description
+                })
+            });
+        }
+        
+        await loadUserSettings();
+        updateDateDisplay();
+        closeModal('combinedFundModal');
         loadProvidentFund();
         loadDashboard();
+        loadOTRecords(); // Refresh to apply new cutoff
+        if (currentTab === 'income' || currentTab === 'expense') {
+            loadTransactions(currentTab);
+        }
     } catch (error) {
         showAlert('ผิดพลาด', 'บันทึกไม่สำเร็จ: ' + error.message, 'error');
     }
@@ -1194,22 +1204,23 @@ async function getTransactionSummary() {
     return { income, expenses, balance: income - expenses };
 }
 
-async function loadTransactions() {
+async function loadTransactions(filterType) {
     if (!currentUser) return;
     try {
         const transactions = await apiFetch(`/api/transactions${getDateRangeQuery()}`);
-        let income = 0, expenses = 0;
+        let total = 0;
 
-        transactions.forEach(data => {
-            if (data.type === 'income') income += data.amount || 0;
-            else expenses += data.amount || 0;
+        const filtered = transactions.filter(t => t.type === filterType);
+
+        filtered.forEach(data => {
+            total += data.amount || 0;
         });
 
-        const list = document.getElementById('transactionList');
-        const summary = document.getElementById('transactionSummary');
+        const list = document.getElementById(filterType + 'List');
+        const summary = document.getElementById(filterType + 'Summary');
 
-        if (transactions.length > 0) {
-            list.innerHTML = transactions.map(trans => `
+        if (filtered.length > 0) {
+            list.innerHTML = filtered.map(trans => `
                 <div class="record-item">
                     <div class="record-info">
                         <div class="record-date">${formatDate(trans.date)}</div>
@@ -1229,16 +1240,12 @@ async function loadTransactions() {
 
             summary.innerHTML = `
                 <div class="summary-row">
-                    <span class="summary-label">รายรับ</span>
-                    <span class="summary-value" style="color: var(--color-income)">${formatCurrency(income)}</span>
+                    <span class="summary-label">จำนวนรายการ</span>
+                    <span class="summary-value">${filtered.length} รายการ</span>
                 </div>
                 <div class="summary-row">
-                    <span class="summary-label">รายจ่าย</span>
-                    <span class="summary-value" style="color: var(--color-expense)">${formatCurrency(expenses)}</span>
-                </div>
-                <div class="summary-row">
-                    <span class="summary-label">คงเหลือ</span>
-                    <span class="summary-value large" style="color: var(--color-balance)">${formatCurrency(income - expenses)}</span>
+                    <span class="summary-label">รวม${filterType === 'income' ? 'รายรับ' : 'รายจ่าย'}</span>
+                    <span class="summary-value large" style="color: var(--color-${filterType})">${formatCurrency(total)}</span>
                 </div>
             `;
         } else {
@@ -1296,7 +1303,9 @@ window.saveTransaction = async function(event) {
             }
         }
         closeModal('transactionModal');
-        loadTransactions();
+        if (currentTab === 'income' || currentTab === 'expense') {
+            loadTransactions(currentTab);
+        }
         loadDashboard();
     } catch (error) {
         showAlert('ผิดพลาด', 'บันทึกไม่สำเร็จ: ' + error.message, 'error');
@@ -1328,7 +1337,7 @@ window.editTransaction = async function(id) {
             document.getElementById('transactionDescription').value = trans.description || '';
 
             const modalTitle = document.getElementById('transactionModal').querySelector('h3');
-            if (modalTitle) modalTitle.textContent = 'แก้ไขรายรับ - รายจ่าย';
+            if (modalTitle) modalTitle.textContent = trans.type === 'income' ? 'แก้ไขรายรับ' : 'แก้ไขรายจ่าย';
             document.getElementById('transactionModal').classList.add('active');
         }
     } catch (error) {
@@ -1340,7 +1349,9 @@ window.deleteTransaction = function(id) {
     showConfirm('ยืนยันการลบ', 'ต้องการลบรายการนี้ใช่หรือไม่?', async () => {
         try {
             await apiFetch(`/api/transactions/${id}`, { method: 'DELETE' });
-            loadTransactions();
+            if (currentTab === 'income' || currentTab === 'expense') {
+                loadTransactions(currentTab);
+            }
             loadDashboard();
         } catch (error) {
             showAlert('ผิดพลาด', 'ลบไม่สำเร็จ: ' + error.message, 'error');

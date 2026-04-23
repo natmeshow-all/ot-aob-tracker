@@ -90,18 +90,23 @@
     <div id="app" class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 animate-fade-in" style="display: none;">
         
         <!-- Header -->
-        <header class="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-            <div class="flex items-center gap-4">
-                <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-white/20 shadow-glow-cyan flex-shrink-0">
-                    <img id="userAvatar" src="" alt="User" class="w-full h-full object-cover">
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <div class="flex items-center justify-between w-full sm:w-auto">
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 rounded-full overflow-hidden border-2 border-white/20 shadow-glow-cyan flex-shrink-0">
+                        <img id="userAvatar" src="" alt="User" class="w-full h-full object-cover">
+                    </div>
+                    <div>
+                        <h2 class="text-xl m-0 leading-none">สวัสดี, <span id="userName" class="text-gradient-primary"></span></h2>
+                        <span class="text-sm text-slate-400">สรุปภาพรวมการเงินของคุณ</span>
+                    </div>
                 </div>
-                <div>
-                    <h2 class="text-xl m-0 leading-none">สวัสดี, <span id="userName" class="text-gradient-primary"></span></h2>
-                    <span class="text-sm text-slate-400">สรุปภาพรวมการเงินของคุณ</span>
-                </div>
+                <button onclick="logout()" class="sm:hidden px-3 py-2 bg-white/5 hover:bg-expense/20 text-slate-400 hover:text-expense border border-white/10 hover:border-expense/50 rounded-lg transition-all text-xs font-medium">
+                    ออกจากระบบ
+                </button>
             </div>
             
-            <div class="flex gap-3 items-center">
+            <div class="flex flex-wrap sm:flex-nowrap justify-center sm:justify-end gap-3 items-center w-full sm:w-auto">
                 <!-- Date Navigator -->
                 <div class="glass-card px-4 py-2 flex items-center gap-3 shadow-glow-indigo/10">
                     <button class="w-7 h-7 rounded-full bg-white/5 hover:bg-white/15 flex items-center justify-center transition-all text-sm" onclick="navigateDate(-1)">❮</button>
@@ -116,14 +121,14 @@
                     <button class="toggle-btn active text-xs px-3 py-1.5" data-view="monthly" onclick="switchView('monthly')">รายเดือน</button>
                     <button class="toggle-btn text-xs px-3 py-1.5" data-view="yearly" onclick="switchView('yearly')">รายปี</button>
                 </div>
-                <button onclick="logout()" class="px-3 py-2 bg-white/5 hover:bg-expense/20 text-slate-400 hover:text-expense border border-white/10 hover:border-expense/50 rounded-lg transition-all text-xs font-medium">
+                <button onclick="logout()" class="hidden sm:block px-3 py-2 bg-white/5 hover:bg-expense/20 text-slate-400 hover:text-expense border border-white/10 hover:border-expense/50 rounded-lg transition-all text-xs font-medium">
                     ออกจากระบบ
                 </button>
             </div>
         </header>
 
         <!-- Premium Tab Navigation -->
-        <nav class="flex gap-2 mb-8 p-1.5 glass-card rounded-2xl overflow-x-auto hide-scrollbar">
+        <nav class="flex gap-2 mb-8 p-1.5 glass-card rounded-2xl overflow-x-auto hide-scrollbar max-w-4xl mx-auto md:justify-center">
             <button class="nav-tab-premium active" data-tab="dashboard" onclick="switchTab('dashboard')">
                 <span class="nav-tab-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
@@ -142,11 +147,17 @@
                 </span>
                 <span class="nav-tab-label">กองทุน</span>
             </button>
-            <button class="nav-tab-premium" data-tab="transactions" onclick="switchTab('transactions')">
+            <button class="nav-tab-premium" data-tab="income" onclick="switchTab('income')">
+                <span class="nav-tab-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                </span>
+                <span class="nav-tab-label">รายรับ</span>
+            </button>
+            <button class="nav-tab-premium" data-tab="expense" onclick="switchTab('expense')">
                 <span class="nav-tab-icon">
                     <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 </span>
-                <span class="nav-tab-label">รายรับ-จ่าย</span>
+                <span class="nav-tab-label">รายจ่าย</span>
             </button>
         </nav>
 
@@ -276,11 +287,10 @@
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-white">กองทุนสำรองเลี้ยงชีพ</h2>
                 <div class="flex gap-2">
-                    <button onclick="openModal('fundModal')" class="btn-secondary text-sm px-5 py-2 flex items-center gap-2">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
-                        ตั้งค่า
+                    <button onclick="openCombinedFundModal()" class="btn-primary shadow-glow-violet text-sm px-5 py-2 bg-gradient-to-r from-accent-violet to-fuchsia-500 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                        บันทึกข้อมูลกองทุน
                     </button>
-                    <button onclick="openFundContributionModal()" class="btn-primary shadow-glow-violet text-sm px-5 py-2 bg-gradient-to-r from-accent-violet to-fuchsia-500">+ เพิ่มยอดสะสม</button>
                 </div>
             </div>
             
@@ -296,20 +306,39 @@
         </div>
 
         <!-- ---------------------------------
-             TRANSACTIONS TAB
+             INCOME TAB
         ---------------------------------- -->
-        <div id="transactionsTab" class="tab-pane">
+        <div id="incomeTab" class="tab-pane">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-white">รายรับ - รายจ่าย</h2>
-                <button onclick="openModal('transactionModal')" class="btn-primary shadow-glow-cyan text-sm px-5 py-2 bg-gradient-to-r from-accent-cyan to-blue-500">+ เพิ่มรายการ</button>
+                <h2 class="text-2xl font-bold text-white">รายรับ</h2>
+                <button onclick="openModal('transactionModal', 'income')" class="btn-primary shadow-glow-cyan text-sm px-5 py-2 bg-gradient-to-r from-accent-cyan to-blue-500">+ เพิ่มรายรับ</button>
             </div>
             
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2">
-                    <div id="transactionList" class="space-y-3"></div>
+                    <div id="incomeList" class="space-y-3"></div>
                 </div>
                 <div>
-                    <div id="transactionSummary" class="glass-card p-6 sticky top-6 border-t-4 border-t-blue-500"></div>
+                    <div id="incomeSummary" class="glass-card p-6 sticky top-6 border-t-4 border-t-income"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ---------------------------------
+             EXPENSE TAB
+        ---------------------------------- -->
+        <div id="expenseTab" class="tab-pane">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-white">รายจ่าย</h2>
+                <button onclick="openModal('transactionModal', 'expense')" class="btn-primary shadow-glow-red text-sm px-5 py-2 bg-gradient-to-r from-accent-red to-red-500">+ เพิ่มรายจ่าย</button>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2">
+                    <div id="expenseList" class="space-y-3"></div>
+                </div>
+                <div>
+                    <div id="expenseSummary" class="glass-card p-6 sticky top-6 border-t-4 border-t-expense"></div>
                 </div>
             </div>
         </div>
@@ -339,19 +368,26 @@
 
                     <div>
                         <label class="input-label">ประเภท OT</label>
-                        <div class="grid grid-cols-2 gap-3 mt-1">
+                        <div class="grid grid-cols-3 gap-3 mt-1">
                             <label class="ot-multiplier-option">
                                 <input type="radio" name="otMultiplier" value="1" id="otMult1" class="hidden" onchange="calculateOTAmount()" checked>
                                 <div class="ot-multiplier-card" id="otMult1Card">
-                                    <div class="text-2xl font-prompt font-black">×1</div>
-                                    <div class="text-xs text-slate-300 mt-1">ทำงานปกติ</div>
+                                    <div class="text-xl md:text-2xl font-prompt font-black">×1</div>
+                                    <div class="text-[10px] md:text-xs text-slate-300 mt-1">ทำงานปกติ</div>
                                 </div>
                             </label>
                             <label class="ot-multiplier-option">
                                 <input type="radio" name="otMultiplier" value="1.5" id="otMult15" class="hidden" onchange="calculateOTAmount()">
                                 <div class="ot-multiplier-card" id="otMult15Card">
-                                    <div class="text-2xl font-prompt font-black text-accent-cyan">×1.5</div>
-                                    <div class="text-xs text-slate-300 mt-1">วันหยุด / ล่วงเวลา</div>
+                                    <div class="text-xl md:text-2xl font-prompt font-black text-accent-cyan">×1.5</div>
+                                    <div class="text-[10px] md:text-xs text-slate-300 mt-1">ล่วงเวลา</div>
+                                </div>
+                            </label>
+                            <label class="ot-multiplier-option">
+                                <input type="radio" name="otMultiplier" value="3" id="otMult3" class="hidden" onchange="calculateOTAmount()">
+                                <div class="ot-multiplier-card" id="otMult3Card">
+                                    <div class="text-xl md:text-2xl font-prompt font-black text-accent-violet">×3</div>
+                                    <div class="text-[10px] md:text-xs text-slate-300 mt-1">วันหยุดพิเศษ</div>
                                 </div>
                             </label>
                         </div>
@@ -387,83 +423,76 @@
         </div>
     </div>
 
-    <!-- Fund Modal -->
-    <div id="fundModal" class="modal-overlay">
+    <!-- Combined Fund Modal -->
+    <div id="combinedFundModal" class="modal-overlay">
         <div class="modal-content glass-card p-8 relative">
-            <button onclick="closeModal('fundModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
-            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">ตั้งค่าบัญชี & รอบตัดบิล</h3>
-            <form onsubmit="saveFundSettings(event)">
-                <div class="space-y-4">
+            <button onclick="closeModal('combinedFundModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">จัดการกองทุน & ยอดสะสม</h3>
+            <form onsubmit="saveCombinedFund(event)">
+                
+                <div class="mb-6 bg-white/5 p-4 rounded-lg border border-white/10 flex items-center justify-between cursor-pointer hover:bg-white/10 transition-colors" onclick="document.getElementById('saveContribCheck').click()">
                     <div>
-                        <label class="input-label">เงินเดือนพื้นฐาน (฿)</label>
-                        <input type="number" id="fundSalary" step="0.01" min="0" class="input-field number-font" required>
+                        <div class="text-white font-medium">บันทึกยอดสะสมของเดือนนี้ด้วย</div>
+                        <div class="text-xs text-slate-400 mt-0.5">เพิ่มรายการลงในประวัติการส่งเงินกองทุน</div>
                     </div>
-                    <div>
-                        <label class="input-label">หักเข้าส่วนพนักงาน (%)</label>
-                        <input type="number" id="fundEmployeePercent" step="0.1" min="1" max="15" class="input-field number-font" required>
-                    </div>
-                    <div>
-                        <label class="input-label">วันที่เริ่มสะสม</label>
-                        <input type="date" id="fundStartDate" class="input-field" required>
-                    </div>
-                    <div>
-                        <label class="input-label">วันที่ตัดรอบบิลของทุกเดือน (1-31, 0 คือสิ้นเดือน)</label>
-                        <input type="number" id="fundCutoffDate" min="0" max="31" class="input-field number-font" placeholder="เช่น 15" required>
-                    </div>
+                    <input type="checkbox" id="saveContribCheck" class="w-5 h-5 accent-accent-violet" onchange="toggleContribFields(event); event.stopPropagation();">
                 </div>
-                <div class="mt-8 flex gap-3">
-                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('fundModal')">ยกเลิก</button>
-                    <button type="submit" class="btn-primary flex-1 bg-gradient-to-r from-accent-violet to-fuchsia-500 shadow-glow-indigo">บันทึกการตั้งค่า</button>
-                </div>
-            </form>
-        </div>
-    </div>
 
-    <!-- Fund Contribution Modal -->
-    <div id="fundContributionModal" class="modal-overlay">
-        <div class="modal-content glass-card p-8 relative">
-            <button onclick="closeModal('fundContributionModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
-            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">เพิ่มยอดสะสมกองทุน</h3>
-            <form onsubmit="saveFundContribution(event)">
                 <div class="space-y-4">
-                    <div>
-                        <label class="input-label">วันที่</label>
-                        <input type="date" id="fcDate" class="input-field" required>
-                    </div>
-                    <div>
-                        <label class="input-label">ฐานเงินเดือนของเดือนนี้ (฿)</label>
-                        <input type="number" id="fcBaseSalary" step="0.01" min="0" class="input-field number-font" oninput="calculateFundAmounts()" required>
-                    </div>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="input-label">ส่วนพนักงาน (%)</label>
-                            <input type="number" id="fcEmpPercent" step="0.1" min="0" class="input-field number-font" oninput="calculateFundAmounts()" required>
+                            <label class="input-label">ฐานเงินเดือน (฿)</label>
+                            <input type="number" id="combBaseSalary" step="0.01" min="0" class="input-field number-font" oninput="calcCombFund()" required>
                         </div>
                         <div>
-                            <label class="input-label">ส่วนนายจ้าง (%)</label>
-                            <input type="number" id="fcEmpRPercent" step="0.1" min="0" class="input-field number-font" oninput="calculateFundAmounts()" required>
+                            <label class="input-label">วันที่เริ่มสะสมในระบบ</label>
+                            <input type="date" id="combStartDate" class="input-field" required>
                         </div>
                     </div>
                     
-                    <div class="bg-black/20 p-4 rounded-lg border border-white/10 space-y-2 mt-2">
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="text-slate-300">ยอดหักส่วนพนักงาน</span>
-                            <span id="fcEmpAmountDisplay" class="font-prompt font-bold text-accent-cyan text-lg">฿0.00</span>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="input-label">ส่วนพนักงาน (%)</label>
+                            <input type="number" id="combEmpPercent" step="0.1" min="0" class="input-field number-font" oninput="calcCombFund()" required>
                         </div>
-                        <div class="flex justify-between items-center text-sm">
-                            <span class="text-slate-300">ยอดสมทบส่วนนายจ้าง</span>
-                            <span id="fcEmpRAmountDisplay" class="font-prompt font-bold text-income text-lg">฿0.00</span>
+                        <div>
+                            <label class="input-label">ส่วนนายจ้าง (%)</label>
+                            <input type="number" id="combEmpRPercent" step="0.1" min="0" class="input-field number-font" oninput="calcCombFund()" required>
                         </div>
                     </div>
 
                     <div>
-                        <label class="input-label">หมายเหตุ (ถ้ามี)</label>
-                        <input type="text" id="fcDescription" class="input-field" placeholder="เช่น โบนัสสมทบพิเศษ">
+                        <label class="input-label">วันที่ตัดรอบบิล (1-31, 0 = สิ้นเดือน)</label>
+                        <input type="number" id="combCutoffDate" min="0" max="31" class="input-field number-font" placeholder="เช่น 15" required>
+                    </div>
+
+                    <div id="contribFieldsWrapper" class="pt-4 border-t border-white/10 mt-4 space-y-4" style="display: none;">
+                        <div>
+                            <label class="input-label">วันที่ของรายการสะสม</label>
+                            <input type="date" id="combDate" class="input-field">
+                        </div>
+                        
+                        <div class="bg-black/20 p-4 rounded-lg border border-white/10 space-y-2">
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-300">ยอดหักส่วนพนักงาน</span>
+                                <span id="combEmpAmountDisplay" class="font-prompt font-bold text-accent-cyan text-lg">฿0.00</span>
+                            </div>
+                            <div class="flex justify-between items-center text-sm">
+                                <span class="text-slate-300">ยอดสมทบส่วนนายจ้าง</span>
+                                <span id="combEmpRAmountDisplay" class="font-prompt font-bold text-income text-lg">฿0.00</span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="input-label">หมายเหตุ (ถ้ามี)</label>
+                            <input type="text" id="combDescription" class="input-field" placeholder="เช่น โบนัสสมทบพิเศษ">
+                        </div>
                     </div>
                 </div>
+
                 <div class="mt-8 flex gap-3">
-                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('fundContributionModal')">ยกเลิก</button>
-                    <button type="submit" class="btn-primary flex-1 bg-gradient-to-r from-accent-violet to-fuchsia-500 shadow-glow-indigo">บันทึก</button>
+                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('combinedFundModal')">ยกเลิก</button>
+                    <button type="submit" class="btn-primary flex-1 bg-gradient-to-r from-accent-violet to-fuchsia-500 shadow-glow-indigo">บันทึกข้อมูล</button>
                 </div>
             </form>
         </div>
@@ -473,18 +502,18 @@
     <div id="transactionModal" class="modal-overlay">
         <div class="modal-content glass-card p-8 relative">
             <button onclick="closeModal('transactionModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
-            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">เพิ่มรายรับ - รายจ่าย</h3>
+            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">เพิ่มรายการ</h3>
             <form onsubmit="saveTransaction(event)">
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
+                        <div id="transactionTypeContainer" style="display:none;">
                             <label class="input-label">ประเภท</label>
                             <select id="transactionType" class="input-field bg-midnight" onchange="updateTransactionCategories()" required>
                                 <option value="income">รายรับ 📈</option>
                                 <option value="expense">รายจ่าย 📉</option>
                             </select>
                         </div>
-                        <div>
+                        <div class="col-span-2" id="transactionDateContainer">
                             <label class="input-label">วันที่</label>
                             <input type="date" id="transactionDate" class="input-field" required>
                         </div>
