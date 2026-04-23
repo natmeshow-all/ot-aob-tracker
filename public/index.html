@@ -21,6 +21,22 @@
         .shape-1 { width: 300px; height: 300px; background: theme('colors.accent-indigo'); top: -100px; left: -100px; border-radius: 50%; }
         .shape-2 { width: 400px; height: 400px; background: theme('colors.accent-cyan'); bottom: -150px; right: -100px; border-radius: 50%; }
         .shape-3 { width: 250px; height: 250px; background: theme('colors.accent-violet'); top: 40%; left: 50%; border-radius: 50%; transform: translate(-50%, -50%); }
+
+        /* Bottom Navigation Styles */
+        #bottomNav {
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .nav-hidden {
+            transform: translateY(150%) !important;
+        }
+        @media (min-width: 768px) {
+            #bottomNav:not(.nav-hidden) {
+                transform: translateX(-50%) !important;
+            }
+            .nav-hidden {
+                transform: translate(-50%, 150%) !important;
+            }
+        }
     </style>
 </head>
 <body class="bg-midnight relative min-h-screen">
@@ -87,7 +103,7 @@
     <!-- ---------------------------------
          MAIN APP
     ---------------------------------- -->
-    <div id="app" class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 animate-fade-in" style="display: none;">
+    <div id="app" class="max-w-6xl mx-auto p-4 sm:p-6 lg:p-8 animate-fade-in" style="display: none; padding-bottom: 120px;">
         
         <!-- Header -->
         <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -128,36 +144,36 @@
         </header>
 
         <!-- Premium Tab Navigation -->
-        <nav class="flex gap-2 mb-8 p-1.5 glass-card rounded-2xl overflow-x-auto hide-scrollbar max-w-4xl mx-auto md:justify-center">
-            <button class="nav-tab-premium active" data-tab="dashboard" onclick="switchTab('dashboard')">
+        <nav id="bottomNav" class="fixed bottom-0 left-0 w-full z-50 flex gap-2 p-3 glass-card rounded-t-3xl md:rounded-2xl overflow-x-auto hide-scrollbar md:bottom-6 md:left-1/2 md:w-auto max-w-4xl shadow-[0_-10px_40px_rgba(0,0,0,0.5)] md:shadow-glow-cyan md:justify-center border-t border-white/10 md:border md:border-white/10 bg-midnight/80 backdrop-blur-xl">
+            <button class="nav-tab-premium active flex-1" data-tab="dashboard" onclick="switchTab('dashboard')">
                 <span class="nav-tab-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
                 </span>
-                <span class="nav-tab-label">แดชบอร์ด</span>
+                <span class="nav-tab-label mt-1 md:mt-0 text-[10px] md:text-xs">แดชบอร์ด</span>
             </button>
-            <button class="nav-tab-premium" data-tab="ot" onclick="switchTab('ot')">
+            <button class="nav-tab-premium flex-1" data-tab="ot" onclick="switchTab('ot')">
                 <span class="nav-tab-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                 </span>
-                <span class="nav-tab-label">โอที</span>
+                <span class="nav-tab-label mt-1 md:mt-0 text-[10px] md:text-xs">โอที</span>
             </button>
-            <button class="nav-tab-premium" data-tab="fund" onclick="switchTab('fund')">
+            <button class="nav-tab-premium flex-1" data-tab="fund" onclick="switchTab('fund')">
                 <span class="nav-tab-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
                 </span>
-                <span class="nav-tab-label">กองทุน</span>
+                <span class="nav-tab-label mt-1 md:mt-0 text-[10px] md:text-xs">กองทุน</span>
             </button>
-            <button class="nav-tab-premium" data-tab="income" onclick="switchTab('income')">
+            <button class="nav-tab-premium flex-1" data-tab="income" onclick="switchTab('income')">
                 <span class="nav-tab-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 </span>
-                <span class="nav-tab-label">รายรับ</span>
+                <span class="nav-tab-label mt-1 md:mt-0 text-[10px] md:text-xs">รายรับ</span>
             </button>
-            <button class="nav-tab-premium" data-tab="expense" onclick="switchTab('expense')">
+            <button class="nav-tab-premium flex-1" data-tab="expense" onclick="switchTab('expense')">
                 <span class="nav-tab-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 md:w-5 md:h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
                 </span>
-                <span class="nav-tab-label">รายจ่าย</span>
+                <span class="nav-tab-label mt-1 md:mt-0 text-[10px] md:text-xs">รายจ่าย</span>
             </button>
         </nav>
 

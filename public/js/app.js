@@ -1496,3 +1496,18 @@ window.deleteTransaction = function(id) {
         }
     });
 };
+
+// --- Nav Scroll Logic ---
+let lastScrollY = window.scrollY || document.documentElement.scrollTop;
+window.addEventListener('scroll', () => {
+    const nav = document.getElementById('bottomNav');
+    if (!nav) return;
+    
+    const currentScrollY = window.scrollY || document.documentElement.scrollTop;
+    if (currentScrollY > lastScrollY && currentScrollY > 50) {
+        nav.classList.add('nav-hidden');
+    } else {
+        nav.classList.remove('nav-hidden');
+    }
+    lastScrollY = currentScrollY;
+});
