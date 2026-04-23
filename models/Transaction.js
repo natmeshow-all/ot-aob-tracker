@@ -16,11 +16,10 @@ const transactionSchema = new mongoose.Schema({
 
 transactionSchema.index({ userId: 1, year: 1, month: 1, type: 1 });
 
-transactionSchema.pre('save', function (next) {
+transactionSchema.pre('save', function () {
     const date = new Date(this.date);
     this.month = date.getMonth() + 1;
     this.year = date.getFullYear();
-    next();
 });
 
 module.exports = mongoose.models.Transaction || mongoose.model('Transaction', transactionSchema);

@@ -2,11 +2,21 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const rateLimit = require('express-rate-limit');
 const User = require('../models/User');
+
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 5, // Limit each IP to 5 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req, res) => process.env.NODE_ENV !== 'production',
+    message: { error: 'Too many login/register attempts from this IP, please try again after 15 minutes' }
+});
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_local_key_for_jwt';
 
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
     try {
         const { email, password, name } = req.body;
         if (!email || !password || !name) {
@@ -28,7 +38,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
         if (!email || !password) {

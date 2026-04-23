@@ -3,12 +3,39 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const { setupDatabase } = require('./db/database');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const mongoSanitize = require('express-mongo-sanitize');
 
 const app = express();
 
 // Middleware
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+            styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+            fontSrc: ["'self'", "https://fonts.gstatic.com"],
+            imgSrc: ["'self'", "data:", "https://ui-avatars.com"],
+            connectSrc: ["'self'"]
+        }
+    }
+}));
+app.use(mongoSanitize());
+
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 150, // Limit each IP to 150 requests per windowMs
+    standardHeaders: true,
+    legacyHeaders: false,
+    skip: (req, res) => process.env.NODE_ENV !== 'production',
+    message: { error: 'Too many requests from this IP, please try again after 15 minutes' }
+});
+
 app.use(cors());
 app.use(express.json());
+app.use('/api', apiLimiter); // Apply general rate limiter to all API routes
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Connect to MongoDB before every request (cached after first connection)
