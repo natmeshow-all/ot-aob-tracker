@@ -280,6 +280,7 @@ function loadCurrentTab() {
         case 'fund': loadProvidentFund(); break;
         case 'income': loadTransactions('income'); break;
         case 'expense': loadTransactions('expense'); break;
+        case 'debt': loadDebts(); break;
     }
 }
 
@@ -288,10 +289,11 @@ async function loadDashboard() {
     if (!currentUser) return;
 
     try {
-        const [otRecords, fundData, transactions] = await Promise.all([
+        const [otRecords, fundData, transactions, debts] = await Promise.all([
             apiFetch(`/api/ot${getDateRangeQuery()}`),
             getFundSummary(),
-            apiFetch(`/api/transactions${getDateRangeQuery()}`)
+            apiFetch(`/api/transactions${getDateRangeQuery()}`),
+            apiFetch(`/api/debts`) // Debts are typically global, not filtered by date range
         ]);
 
         // Compute OT
@@ -347,13 +349,47 @@ async function loadDashboard() {
         const totalIncomeCount = incomeCount + otCount;
         const totalBalance = totalIncome - expenses;
 
+        // Compute Debts & Auto Add Expense
+        let totalDebtBalance = 0;
+        let totalDebtMonthlyPayment = 0;
+        let autoDebtExpenseTotal = 0;
+        let autoDebtCount = 0;
+
+        debts.forEach(d => {
+            totalDebtBalance += d.balance;
+            let currentRate = d.annualInterestRate || 0;
+            if (d.type === 'long_term') {
+                currentRate = calculateCurrentInterestRate(d.startDate, d.interestRates);
+            }
+            const monthlyInterest = (d.balance * currentRate / 100) / 12;
+            const installment = d.monthlyInstallment || monthlyInterest;
+            totalDebtMonthlyPayment += installment;
+
+            if (d.autoAddExpense) {
+                autoDebtExpenseTotal += installment;
+                autoDebtCount++;
+            }
+        });
+
+        // Add Auto Debt to expenses
+        if (autoDebtExpenseTotal > 0) {
+            if (!expenseByCategory['จ่ายหนี้อัตโนมัติ']) expenseByCategory['จ่ายหนี้อัตโนมัติ'] = { total: 0, count: 0 };
+            expenseByCategory['จ่ายหนี้อัตโนมัติ'].total += autoDebtExpenseTotal;
+            expenseByCategory['จ่ายหนี้อัตโนมัติ'].count += autoDebtCount;
+            expenses += autoDebtExpenseTotal;
+            expenseCount += autoDebtCount;
+        }
+
+        // Cashflow Status
+        const netCashflow = totalBalance - totalDebtMonthlyPayment;
+
         // Cache for popup use
         _dashCache = {
             income: totalIncome, expenses, balance: totalBalance,
             incomeCount: totalIncomeCount, expenseCount,
             incomeByCategory, expenseByCategory,
             otTotalHours, otTotalAmount, otCount, otNormal, otHoliday,
-            fundData, transactions, otRecords
+            fundData, transactions, otRecords, debts
         };
 
         // Fill Quick Stats
@@ -374,6 +410,28 @@ async function loadDashboard() {
         elSet('dashFundDuration', fundData.duration || '-');
         elSet('dashIncomeSmall', formatCurrency(totalIncome));
         elSet('dashExpenseSmall', formatCurrency(expenses));
+
+        // Debt & Cashflow
+        elSet('dashDebtTotal', formatCurrency(totalDebtBalance));
+        elSet('dashDebtInterest', formatCurrency(totalDebtMonthlyPayment));
+        
+        const cfAmountEl = document.getElementById('dashCashflowAmount');
+        const cfTextEl = document.getElementById('dashCashflowText');
+        const cfIconEl = document.getElementById('dashCashflowIcon');
+        
+        if (cfAmountEl) {
+            cfAmountEl.textContent = formatCurrency(Math.abs(netCashflow));
+            if (netCashflow >= 0) {
+                cfAmountEl.className = 'text-3xl font-prompt font-bold text-income';
+                cfTextEl.innerHTML = '<span class="text-income">บวก (เงินเหลือเก็บ)</span>';
+                cfIconEl.textContent = '🥳';
+            } else {
+                cfAmountEl.className = 'text-3xl font-prompt font-bold text-expense';
+                cfAmountEl.textContent = '-' + cfAmountEl.textContent;
+                cfTextEl.innerHTML = '<span class="text-expense">ติดลบ (เงินไม่พอจ่าย)</span>';
+                cfIconEl.textContent = '😰';
+            }
+        }
 
         const totalBudget = totalIncome || 1;
         elSet('dashBalanceIncomePct', Math.round((totalIncome / totalBudget) * 100) + '%');
@@ -396,7 +454,8 @@ async function loadDashboard() {
 // --- Dashboard Popup ---
 const CAT_EMOJI = {
     'เงินเดือน':'💰','ค่าอาหาร':'🍱','ค่ากะกลางคืน':'🌙','เบี้ยขยัน':'⭐','ค่าโบนัส':'🎁','อื่นๆ (รายรับ)':'📥',
-    'หักประกันสังคม':'🏥','หักกองทุนเลี้ยงชีพ':'🏦','หัก กยศ.':'📚','อื่นๆ (รายจ่าย)':'📤','OT':'⏱️'
+    'หักประกันสังคม':'🏥','หักกองทุนเลี้ยงชีพ':'🏦','หัก กยศ.':'📚','อื่นๆ (รายจ่าย)':'📤','OT':'⏱️',
+    'จ่ายหนี้อัตโนมัติ':'💳'
 };
 
 function buildCategoryRows(byCategory, total, colorClass) {
@@ -744,6 +803,15 @@ window.openModal = function(modalId, type) {
         document.getElementById('transactionAmount').value = '';
         document.getElementById('transactionDescription').value = '';
         updateTransactionCategories();
+    } else if (modalId === 'debtModal') {
+        currentEditDebtId = null;
+        const modalTitle = document.getElementById('debtModal').querySelector('h3');
+        if (modalTitle) modalTitle.textContent = 'เพิ่มหนี้สิน';
+        document.getElementById('debtName').value = '';
+        document.getElementById('debtBalance').value = '';
+        document.getElementById('debtInterest').value = '';
+        document.getElementById('debtInstallment').value = '';
+        document.getElementById('debtInterestDisplay').textContent = '฿0.00';
     }
 };
 
@@ -1496,6 +1564,258 @@ window.deleteTransaction = function(id) {
         }
     });
 };
+
+// --- Debt Management ---
+let currentEditDebtId = null;
+
+window.onDebtTypeChange = function() {
+    const type = document.getElementById('debtType').value;
+    const longTermFields = document.getElementById('longTermFields');
+    const standardInterest = document.getElementById('standardInterestField');
+    
+    if (type === 'long_term') {
+        longTermFields.style.display = 'block';
+        standardInterest.style.display = 'none';
+        document.getElementById('debtInterest').removeAttribute('required');
+    } else {
+        longTermFields.style.display = 'none';
+        standardInterest.style.display = 'block';
+        document.getElementById('debtInterest').setAttribute('required', 'true');
+    }
+    calculateDebtPreview();
+};
+
+window.calculateCurrentInterestRate = function(startDateStr, ratesObj) {
+    if (!startDateStr || !ratesObj) return 0;
+    const start = new Date(startDateStr);
+    const now = new Date();
+    
+    // Calculate difference in months
+    let months = (now.getFullYear() - start.getFullYear()) * 12;
+    months -= start.getMonth();
+    months += now.getMonth();
+    
+    if (months < 12) return ratesObj.year1 || 0;
+    if (months < 24) return ratesObj.year2 || ratesObj.year1 || 0;
+    if (months < 36) return ratesObj.year3 || ratesObj.year2 || ratesObj.year1 || 0;
+    return ratesObj.year4Plus || ratesObj.year3 || ratesObj.year2 || ratesObj.year1 || 0;
+};
+
+window.calculateDebtPreview = function() {
+    const type = document.getElementById('debtType').value;
+    const bal = parseFloat(document.getElementById('debtBalance').value) || 0;
+    let rate = 0;
+    
+    const rateInfoDisplay = document.getElementById('debtCurrentRateInfo');
+    const rateDisplay = document.getElementById('debtCurrentRateDisplay');
+    
+    if (type === 'long_term') {
+        const start = document.getElementById('debtStartDate').value;
+        const rates = {
+            year1: parseFloat(document.getElementById('debtRateY1').value) || 0,
+            year2: parseFloat(document.getElementById('debtRateY2').value) || 0,
+            year3: parseFloat(document.getElementById('debtRateY3').value) || 0,
+            year4Plus: parseFloat(document.getElementById('debtRateY4Plus').value) || 0
+        };
+        rate = calculateCurrentInterestRate(start, rates);
+        
+        rateInfoDisplay.style.display = 'flex';
+        rateDisplay.textContent = rate + '%';
+    } else {
+        rate = parseFloat(document.getElementById('debtInterest').value) || 0;
+        rateInfoDisplay.style.display = 'none';
+    }
+
+    const monthlyInterest = (bal * rate / 100) / 12;
+    document.getElementById('debtInterestDisplay').textContent = formatCurrency(monthlyInterest);
+};
+
+window.saveDebt = async function(event) {
+    event.preventDefault();
+    
+    const type = document.getElementById('debtType').value;
+    const data = {
+        type: type,
+        name: document.getElementById('debtName').value,
+        balance: parseFloat(document.getElementById('debtBalance').value),
+        monthlyInstallment: parseFloat(document.getElementById('debtInstallment').value) || 0,
+        autoAddExpense: document.getElementById('debtAutoAddExpense').checked
+    };
+
+    if (type === 'long_term') {
+        data.totalAmount = parseFloat(document.getElementById('debtTotalAmount').value) || data.balance;
+        data.durationMonths = parseInt(document.getElementById('debtDurationMonths').value) || 0;
+        data.startDate = document.getElementById('debtStartDate').value;
+        data.interestRates = {
+            year1: parseFloat(document.getElementById('debtRateY1').value) || 0,
+            year2: parseFloat(document.getElementById('debtRateY2').value) || 0,
+            year3: parseFloat(document.getElementById('debtRateY3').value) || 0,
+            year4Plus: parseFloat(document.getElementById('debtRateY4Plus').value) || 0
+        };
+    } else {
+        data.annualInterestRate = parseFloat(document.getElementById('debtInterest').value) || 0;
+    }
+
+    try {
+        if (currentEditDebtId) {
+            await apiFetch(`/api/debts/${currentEditDebtId}`, { method: 'PUT', body: JSON.stringify(data) });
+        } else {
+            await apiFetch('/api/debts', { method: 'POST', body: JSON.stringify(data) });
+        }
+        closeModal('debtModal');
+        loadDebts();
+        loadDashboard(); // Refresh dashboard
+    } catch (error) {
+        showAlert('ผิดพลาด', 'บันทึกไม่สำเร็จ: ' + error.message, 'error');
+    }
+};
+
+window.deleteDebt = function(id) {
+    showConfirm('ยืนยันการลบ', 'ต้องการลบหนี้สินรายการนี้ใช่หรือไม่?', async () => {
+        try {
+            await apiFetch(`/api/debts/${id}`, { method: 'DELETE' });
+            loadDebts();
+            loadDashboard();
+        } catch (error) {
+            showAlert('ผิดพลาด', 'ลบไม่สำเร็จ: ' + error.message, 'error');
+        }
+    });
+};
+
+window.editDebt = async function(id) {
+    try {
+        const debts = await apiFetch(`/api/debts`);
+        const debt = debts.find(d => d.id === id);
+        if (debt) {
+            currentEditDebtId = id;
+            document.getElementById('debtType').value = debt.type || 'standard';
+            onDebtTypeChange();
+            
+            document.getElementById('debtName').value = debt.name;
+            document.getElementById('debtBalance').value = debt.balance;
+            document.getElementById('debtInstallment').value = debt.monthlyInstallment || '';
+            document.getElementById('debtAutoAddExpense').checked = debt.autoAddExpense || false;
+
+            if (debt.type === 'long_term') {
+                document.getElementById('debtTotalAmount').value = debt.totalAmount || '';
+                document.getElementById('debtDurationMonths').value = debt.durationMonths || '';
+                if (debt.startDate) {
+                    const d = new Date(debt.startDate);
+                    document.getElementById('debtStartDate').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                }
+                if (debt.interestRates) {
+                    document.getElementById('debtRateY1').value = debt.interestRates.year1 || '';
+                    document.getElementById('debtRateY2').value = debt.interestRates.year2 || '';
+                    document.getElementById('debtRateY3').value = debt.interestRates.year3 || '';
+                    document.getElementById('debtRateY4Plus').value = debt.interestRates.year4Plus || '';
+                }
+            } else {
+                document.getElementById('debtInterest').value = debt.annualInterestRate || '';
+            }
+
+            calculateDebtPreview();
+
+            const modalTitle = document.getElementById('debtModal').querySelector('h3');
+            if (modalTitle) modalTitle.textContent = 'แก้ไขข้อมูลหนี้สิน';
+            document.getElementById('debtModal').classList.add('active');
+        }
+    } catch (error) {
+        showAlert('ผิดพลาด', 'ดึงข้อมูลไม่สำเร็จ: ' + error.message, 'error');
+    }
+};
+
+async function loadDebts() {
+    if (!currentUser) return;
+    try {
+        const debts = await apiFetch('/api/debts');
+        const list = document.getElementById('debtList');
+        const summary = document.getElementById('debtSummary');
+        const recContent = document.getElementById('debtRecContent');
+        
+        let totalBalance = 0;
+        let totalMonthlyInterest = 0;
+        let totalInstallment = 0;
+
+        if (debts.length > 0) {
+            list.innerHTML = debts.map(d => {
+                totalBalance += d.balance;
+                let currentRate = d.annualInterestRate || 0;
+                
+                if (d.type === 'long_term') {
+                    currentRate = calculateCurrentInterestRate(d.startDate, d.interestRates);
+                    // Overwrite d.annualInterestRate so recommendation logic (Avalanche) can use it
+                    d.annualInterestRate = currentRate;
+                }
+
+                const monthlyInterest = (d.balance * currentRate / 100) / 12;
+                totalMonthlyInterest += monthlyInterest;
+                totalInstallment += d.monthlyInstallment || monthlyInterest;
+                
+                return `
+                <div class="record-item border-l-4 border-orange-500 flex flex-col md:flex-row justify-between items-start md:items-center relative">
+                    ${d.autoAddExpense ? '<div class="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-accent-cyan bg-accent-cyan/10 px-2 py-0.5 rounded-full"><span class="w-2 h-2 rounded-full bg-accent-cyan animate-pulse"></span> ตัดรายจ่ายอัตโนมัติ</div>' : ''}
+                    <div class="record-info mb-3 md:mb-0 w-full mt-4 md:mt-0">
+                        <div class="font-bold text-lg text-white flex items-center gap-2">
+                            ${d.name} 
+                            ${d.type === 'long_term' ? '<span class="text-xs bg-white/10 px-2 py-0.5 rounded text-slate-300 font-normal border border-white/10">หนี้ระยะยาว</span>' : ''}
+                        </div>
+                        <div class="text-sm text-slate-400 mt-1">ยอดหนี้ปัจจุบัน: <span class="text-orange-400 font-prompt">${formatCurrency(d.balance)}</span> ${d.totalAmount ? `<span class="text-xs text-slate-500">(จาก ${formatCurrency(d.totalAmount)})</span>` : ''}</div>
+                        <div class="text-xs text-slate-500 mt-1">ดอกเบี้ยปัจจุบัน: ${currentRate}% ต่อปี (~${formatCurrency(monthlyInterest)}/เดือน)</div>
+                        ${d.monthlyInstallment ? `<div class="text-xs text-accent-cyan mt-1">ยอดผ่อนชำระ: ${formatCurrency(d.monthlyInstallment)}/เดือน</div>` : ''}
+                        <div class="record-actions mt-3">
+                            <button class="record-btn text-accent-cyan border-accent-cyan/50 hover:bg-accent-cyan/10" onclick="editDebt('${d.id}')">แก้ไข</button>
+                            <button class="record-btn delete" onclick="deleteDebt('${d.id}')">ลบ</button>
+                        </div>
+                    </div>
+                    <div class="bg-black/20 p-3 rounded-lg border border-white/10 text-center w-full md:w-auto mt-2 md:mt-0">
+                        <div class="text-xs text-slate-400">ดอกเบี้ยต่อเดือน</div>
+                        <div class="font-prompt font-bold text-expense text-lg">${formatCurrency(monthlyInterest)}</div>
+                    </div>
+                </div>
+            `}).join('');
+
+            summary.innerHTML = `
+                <div class="summary-row">
+                    <span class="summary-label">รวมภาระหนี้ทั้งหมด</span>
+                    <span class="summary-value large text-orange-400">${formatCurrency(totalBalance)}</span>
+                </div>
+                <div class="summary-row mt-2">
+                    <span class="summary-label">รวมดอกเบี้ยต่อเดือน</span>
+                    <span class="summary-value text-expense">${formatCurrency(totalMonthlyInterest)}</span>
+                </div>
+                <div class="summary-row mt-2 border-t border-white/10 pt-2">
+                    <span class="summary-label">ยอดที่ต้องจ่ายต่อเดือน</span>
+                    <span class="summary-value text-white">${formatCurrency(totalInstallment)}</span>
+                </div>
+            `;
+            
+            // Smart Recommendation Logic
+            // Avalanche: Highest interest rate first
+            const avalanche = [...debts].sort((a, b) => b.annualInterestRate - a.annualInterestRate);
+            // Snowball: Lowest balance first
+            const snowball = [...debts].sort((a, b) => a.balance - b.balance);
+            
+            recContent.innerHTML = `
+                <div class="p-3 bg-white/5 rounded-lg border border-accent-violet/30">
+                    <div class="text-xs text-accent-violet uppercase font-bold mb-1">🎯 แผนลดดอกเบี้ย (Avalanche)</div>
+                    <div class="text-white text-sm">ควรปิดหนี้ <span class="font-bold text-orange-400">${avalanche[0].name}</span> ก่อนเป็นอันดับแรก เพราะดอกเบี้ยสูงที่สุด (${avalanche[0].annualInterestRate}%)</div>
+                    <div class="text-xs text-slate-400 mt-1">วิธีนี้จะช่วยประหยัดเงินค่าดอกเบี้ยรวมได้มากที่สุดในระยะยาว</div>
+                </div>
+                <div class="p-3 bg-white/5 rounded-lg border border-accent-cyan/30 mt-3">
+                    <div class="text-xs text-accent-cyan uppercase font-bold mb-1">🏂 แผนสร้างกำลังใจ (Snowball)</div>
+                    <div class="text-white text-sm">ควรปิดหนี้ <span class="font-bold text-orange-400">${snowball[0].name}</span> ก่อน เพราะยอดคงเหลือน้อยที่สุด (${formatCurrency(snowball[0].balance)})</div>
+                    <div class="text-xs text-slate-400 mt-1">วิธีนี้ช่วยให้ปิดหนี้ได้เร็ว สร้างกำลังใจในการปลดหนี้ก้อนต่อไป</div>
+                </div>
+            `;
+        } else {
+            list.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎉</div><div class="empty-state-text">ยอดเยี่ยม! คุณไม่มีภาระหนี้สิน</div></div>';
+            summary.innerHTML = '';
+            recContent.innerHTML = '<div class="text-center py-4">อิสรภาพทางการเงิน! ไม่พบรายการหนี้สินในระบบ</div>';
+        }
+    } catch (error) {
+        console.error('Failed to load debts:', error);
+    }
+}
 
 // --- Nav Scroll Logic ---
 let lastScrollY = window.scrollY || document.documentElement.scrollTop;

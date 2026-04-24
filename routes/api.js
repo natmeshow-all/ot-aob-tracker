@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const OTRecord = require('../models/OTRecord');
 const ProvidentFund = require('../models/ProvidentFund');
 const Transaction = require('../models/Transaction');
+const Debt = require('../models/Debt');
 const { JWT_SECRET } = require('./auth.local');
 
 // Health check (public, no auth needed)
@@ -288,6 +289,77 @@ router.put('/transactions/:id', async (req, res) => {
 router.delete('/transactions/:id', async (req, res) => {
     try {
         await Transaction.deleteOne({ _id: req.params.id, userId: toId(req.user.id) });
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ---------------------------------
+// DEBTS
+// ---------------------------------
+router.get('/debts', async (req, res) => {
+    try {
+        const debts = await Debt.find({ userId: toId(req.user.id) }).sort({ balance: -1 }).lean();
+        res.json(debts.map(d => ({ ...d, id: d._id })));
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/debts', async (req, res) => {
+    try {
+        const { type, name, totalAmount, durationMonths, startDate, interestRates, autoAddExpense, balance, annualInterestRate, monthlyInstallment } = req.body;
+        const d = new Debt({ 
+            userId: toId(req.user.id), 
+            type: type || 'standard',
+            name, 
+            totalAmount,
+            durationMonths,
+            startDate,
+            interestRates,
+            autoAddExpense: !!autoAddExpense,
+            balance, 
+            annualInterestRate, 
+            monthlyInstallment: monthlyInstallment || 0 
+        });
+        await d.save();
+        const r = d.toObject();
+        res.json({ ...r, id: r._id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.put('/debts/:id', async (req, res) => {
+    try {
+        const { type, name, totalAmount, durationMonths, startDate, interestRates, autoAddExpense, balance, annualInterestRate, monthlyInstallment } = req.body;
+        const d = await Debt.findOne({ _id: req.params.id, userId: toId(req.user.id) });
+        if (!d) return res.status(404).json({ error: 'Debt not found' });
+
+        Object.assign(d, { 
+            type: type || 'standard',
+            name, 
+            totalAmount,
+            durationMonths,
+            startDate,
+            interestRates,
+            autoAddExpense: !!autoAddExpense,
+            balance, 
+            annualInterestRate, 
+            monthlyInstallment: monthlyInstallment || 0 
+        });
+        await d.save();
+        const r = d.toObject();
+        res.json({ ...r, id: r._id });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.delete('/debts/:id', async (req, res) => {
+    try {
+        await Debt.deleteOne({ _id: req.params.id, userId: toId(req.user.id) });
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
