@@ -309,7 +309,7 @@ router.get('/debts', async (req, res) => {
 
 router.post('/debts', async (req, res) => {
     try {
-        const { type, name, totalAmount, durationMonths, startDate, interestRates, autoAddExpense, balance, annualInterestRate, monthlyInstallment } = req.body;
+        const { type, name, totalAmount, durationMonths, startDate, paymentDate, interestRates, autoAddExpense, balance, interestType, minPaymentPercentage, annualInterestRate, monthlyInstallment } = req.body;
         const d = new Debt({ 
             userId: toId(req.user.id), 
             type: type || 'standard',
@@ -317,9 +317,12 @@ router.post('/debts', async (req, res) => {
             totalAmount,
             durationMonths,
             startDate,
+            paymentDate: paymentDate || 1,
             interestRates,
             autoAddExpense: !!autoAddExpense,
             balance, 
+            interestType: interestType || 'effective',
+            minPaymentPercentage: minPaymentPercentage || 5,
             annualInterestRate, 
             monthlyInstallment: monthlyInstallment || 0 
         });
@@ -333,7 +336,7 @@ router.post('/debts', async (req, res) => {
 
 router.put('/debts/:id', async (req, res) => {
     try {
-        const { type, name, totalAmount, durationMonths, startDate, interestRates, autoAddExpense, balance, annualInterestRate, monthlyInstallment } = req.body;
+        const { type, name, totalAmount, durationMonths, startDate, paymentDate, interestRates, autoAddExpense, balance, interestType, minPaymentPercentage, annualInterestRate, monthlyInstallment } = req.body;
         const d = await Debt.findOne({ _id: req.params.id, userId: toId(req.user.id) });
         if (!d) return res.status(404).json({ error: 'Debt not found' });
 
@@ -343,9 +346,12 @@ router.put('/debts/:id', async (req, res) => {
             totalAmount,
             durationMonths,
             startDate,
+            paymentDate: paymentDate || 1,
             interestRates,
             autoAddExpense: !!autoAddExpense,
             balance, 
+            interestType: interestType || 'effective',
+            minPaymentPercentage: minPaymentPercentage || 5,
             annualInterestRate, 
             monthlyInstallment: monthlyInstallment || 0 
         });

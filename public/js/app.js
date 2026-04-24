@@ -361,13 +361,29 @@ async function loadDashboard() {
             if (d.type === 'long_term') {
                 currentRate = calculateCurrentInterestRate(d.startDate, d.interestRates);
             }
-            const monthlyInterest = (d.balance * currentRate / 100) / 12;
-            const installment = d.monthlyInstallment || monthlyInterest;
+            
+            let monthlyInterest = 0;
+            if (d.interestType === 'flat') {
+                const principal = d.totalAmount || d.balance;
+                monthlyInterest = (principal * currentRate / 100) / 12;
+            } else {
+                monthlyInterest = (d.balance * currentRate / 100) / 12;
+            }
+
+            let defaultInstallment = monthlyInterest;
+            if (d.interestType === 'effective') {
+                const minPct = (d.minPaymentPercentage || 5) / 100;
+                defaultInstallment = Math.max(d.balance * minPct, monthlyInterest);
+            }
+
+            const installment = d.monthlyInstallment || defaultInstallment;
             totalDebtMonthlyPayment += installment;
 
             if (d.autoAddExpense) {
-                autoDebtExpenseTotal += installment;
-                autoDebtCount++;
+                const { start: viewStart, end: viewEnd } = getViewDateRange();
+                const occurrences = countPaymentOccurrences(viewStart, viewEnd, d.startDate || d.createdAt, d.paymentDate || 1);
+                autoDebtExpenseTotal += (installment * occurrences);
+                autoDebtCount += occurrences;
             }
         });
 
@@ -808,6 +824,7 @@ window.openModal = function(modalId, type) {
         const modalTitle = document.getElementById('debtModal').querySelector('h3');
         if (modalTitle) modalTitle.textContent = 'เพิ่มหนี้สิน';
         document.getElementById('debtName').value = '';
+        document.getElementById('debtTotalAmount').value = '';
         document.getElementById('debtBalance').value = '';
         document.getElementById('debtInterest').value = '';
         document.getElementById('debtInstallment').value = '';
@@ -1601,13 +1618,23 @@ window.calculateCurrentInterestRate = function(startDateStr, ratesObj) {
     return ratesObj.year4Plus || ratesObj.year3 || ratesObj.year2 || ratesObj.year1 || 0;
 };
 
-window.calculateDebtPreview = function() {
+window.calculateDebtPreview = function(source = null) {
     const type = document.getElementById('debtType').value;
+    const interestType = document.getElementById('debtInterestType').value;
+    const minPaymentPercentageInput = document.getElementById('debtMinPaymentPercentage');
+    const installmentInput = document.getElementById('debtInstallment');
+    let minPaymentPercentage = parseFloat(minPaymentPercentageInput.value) || 0;
     const bal = parseFloat(document.getElementById('debtBalance').value) || 0;
+    const total = parseFloat(document.getElementById('debtTotalAmount').value) || bal;
     let rate = 0;
     
     const rateInfoDisplay = document.getElementById('debtCurrentRateInfo');
     const rateDisplay = document.getElementById('debtCurrentRateDisplay');
+    const minPaymentInfo = document.getElementById('debtMinPaymentInfo');
+    const minPaymentDisplay = document.getElementById('debtMinPaymentDisplay');
+    const minPaymentText = document.getElementById('debtMinPaymentText');
+    const minPaymentField = document.getElementById('minPaymentPercentageField');
+    const formulaHint = document.getElementById('debtFormulaHint');
     
     if (type === 'long_term') {
         const start = document.getElementById('debtStartDate').value;
@@ -1626,7 +1653,43 @@ window.calculateDebtPreview = function() {
         rateInfoDisplay.style.display = 'none';
     }
 
-    const monthlyInterest = (bal * rate / 100) / 12;
+    let monthlyInterest = 0;
+    if (interestType === 'flat') {
+        // Flat Rate (คงที่)
+        monthlyInterest = (total * rate / 100) / 12;
+        formulaHint.textContent = 'สูตร: (ยอดหนี้เริ่มต้น × ดอกเบี้ยต่อปี / 100) / 12 (ดอกเบี้ยคงที่)';
+        minPaymentInfo.style.display = 'none';
+        minPaymentField.style.display = 'none';
+    } else {
+        // Effective Rate (ลดต้นลดดอก)
+        monthlyInterest = (bal * rate / 100) / 12;
+        formulaHint.textContent = 'สูตร: (ยอดหนี้ปัจจุบัน × ดอกเบี้ยต่อปี / 100) / 12 (ลดต้นลดดอก)';
+        
+        if (source === 'percentage') {
+            const minPayment = Math.max(bal * (minPaymentPercentage / 100), monthlyInterest);
+            if (bal > 0) installmentInput.value = minPayment.toFixed(2);
+            else installmentInput.value = '';
+        } else if (source === 'installment') {
+            const inst = parseFloat(installmentInput.value) || 0;
+            if (bal > 0) {
+                minPaymentPercentage = (inst / bal) * 100;
+                minPaymentPercentageInput.value = minPaymentPercentage.toFixed(2);
+            }
+        } else {
+            // General update (e.g. balance changed) -> sync installment from percentage
+            if (minPaymentPercentage > 0 && bal > 0) {
+                const minPayment = Math.max(bal * (minPaymentPercentage / 100), monthlyInterest);
+                installmentInput.value = minPayment.toFixed(2);
+            }
+        }
+        
+        const currentInst = parseFloat(installmentInput.value) || Math.max(bal * (minPaymentPercentage / 100), monthlyInterest);
+        minPaymentText.textContent = `ยอดชำระขั้นต่ำ (${minPaymentPercentage.toFixed(2)}% ของยอดปัจจุบัน)`;
+        minPaymentDisplay.textContent = formatCurrency(currentInst);
+        minPaymentInfo.style.display = 'flex';
+        minPaymentField.style.display = 'block';
+    }
+
     document.getElementById('debtInterestDisplay').textContent = formatCurrency(monthlyInterest);
 };
 
@@ -1637,15 +1700,18 @@ window.saveDebt = async function(event) {
     const data = {
         type: type,
         name: document.getElementById('debtName').value,
+        totalAmount: parseFloat(document.getElementById('debtTotalAmount').value) || parseFloat(document.getElementById('debtBalance').value),
         balance: parseFloat(document.getElementById('debtBalance').value),
+        interestType: document.getElementById('debtInterestType').value,
+        minPaymentPercentage: parseFloat(document.getElementById('debtMinPaymentPercentage').value) || 5,
         monthlyInstallment: parseFloat(document.getElementById('debtInstallment').value) || 0,
-        autoAddExpense: document.getElementById('debtAutoAddExpense').checked
+        autoAddExpense: document.getElementById('debtAutoAddExpense').checked,
+        startDate: document.getElementById('debtStartDate').value,
+        paymentDate: parseInt(document.getElementById('debtPaymentDate').value) || 1
     };
 
     if (type === 'long_term') {
-        data.totalAmount = parseFloat(document.getElementById('debtTotalAmount').value) || data.balance;
         data.durationMonths = parseInt(document.getElementById('debtDurationMonths').value) || 0;
-        data.startDate = document.getElementById('debtStartDate').value;
         data.interestRates = {
             year1: parseFloat(document.getElementById('debtRateY1').value) || 0,
             year2: parseFloat(document.getElementById('debtRateY2').value) || 0,
@@ -1689,20 +1755,26 @@ window.editDebt = async function(id) {
         if (debt) {
             currentEditDebtId = id;
             document.getElementById('debtType').value = debt.type || 'standard';
+            document.getElementById('debtInterestType').value = debt.interestType || 'effective';
+            document.getElementById('debtMinPaymentPercentage').value = debt.minPaymentPercentage || 5;
             onDebtTypeChange();
             
             document.getElementById('debtName').value = debt.name;
+            document.getElementById('debtTotalAmount').value = debt.totalAmount || '';
             document.getElementById('debtBalance').value = debt.balance;
             document.getElementById('debtInstallment').value = debt.monthlyInstallment || '';
             document.getElementById('debtAutoAddExpense').checked = debt.autoAddExpense || false;
+            document.getElementById('debtPaymentDate').value = debt.paymentDate || 1;
+            if (debt.startDate) {
+                const d = new Date(debt.startDate);
+                document.getElementById('debtStartDate').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            } else if (debt.createdAt) {
+                const d = new Date(debt.createdAt);
+                document.getElementById('debtStartDate').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            }
 
             if (debt.type === 'long_term') {
-                document.getElementById('debtTotalAmount').value = debt.totalAmount || '';
                 document.getElementById('debtDurationMonths').value = debt.durationMonths || '';
-                if (debt.startDate) {
-                    const d = new Date(debt.startDate);
-                    document.getElementById('debtStartDate').value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                }
                 if (debt.interestRates) {
                     document.getElementById('debtRateY1').value = debt.interestRates.year1 || '';
                     document.getElementById('debtRateY2').value = debt.interestRates.year2 || '';
@@ -1747,29 +1819,116 @@ async function loadDebts() {
                     d.annualInterestRate = currentRate;
                 }
 
-                const monthlyInterest = (d.balance * currentRate / 100) / 12;
-                totalMonthlyInterest += monthlyInterest;
-                totalInstallment += d.monthlyInstallment || monthlyInterest;
+                let monthlyInterest = 0;
+                if (d.interestType === 'flat') {
+                    const principal = d.totalAmount || d.balance;
+                    monthlyInterest = (principal * currentRate / 100) / 12;
+                } else {
+                    monthlyInterest = (d.balance * currentRate / 100) / 12;
+                }
                 
+                totalMonthlyInterest += monthlyInterest;
+                
+                let minPaymentInfo = '';
+                let minPayment = monthlyInterest;
+                if (d.interestType === 'effective') {
+                    const minPct = (d.minPaymentPercentage || 5) / 100;
+                    minPayment = Math.max(d.balance * minPct, monthlyInterest);
+                    minPaymentInfo = `<span class="text-xs text-orange-400">ขั้นต่ำ: ${formatCurrency(minPayment)}</span>`;
+                }
+
+                totalInstallment += d.monthlyInstallment || minPayment;
+                
+                let durationText = '';
+                let diffMonths = 0;
+                const baseDateStr = d.startDate || d.createdAt;
+                if (baseDateStr) {
+                    const start = new Date(baseDateStr);
+                    const now = new Date();
+                    diffMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
+                    if (diffMonths > 0) {
+                        const years = Math.floor(diffMonths / 12);
+                        const months = diffMonths % 12;
+                        if (years > 0 && months > 0) durationText = `${years} ปี ${months} เดือน`;
+                        else if (years > 0) durationText = `${years} ปี`;
+                        else durationText = `${months} เดือน`;
+                    } else {
+                        durationText = 'เริ่มชำระเดือนนี้';
+                    }
+                }
+
+                const monthlyPayment = d.monthlyInstallment || minPayment;
+                const principalPaid = Math.max(0, monthlyPayment - monthlyInterest);
+                
+                let totalPaidText = '';
+                let totalInterestPaidText = '';
+                if (d.totalAmount && d.totalAmount > d.balance) {
+                    const totalPrincipalPaid = d.totalAmount - d.balance;
+                    totalPaidText = `<div class="text-[11px] text-emerald-400/90 mt-1 flex justify-between"><span>คืนต้นสะสม:</span> <span>${formatCurrency(totalPrincipalPaid)}</span></div>`;
+                    
+                    if (diffMonths > 0) {
+                        let cumulativeInterest = 0;
+                        if (d.interestType === 'flat') {
+                            const fixedMonthlyInterest = (d.totalAmount * currentRate / 100) / 12;
+                            cumulativeInterest = fixedMonthlyInterest * diffMonths;
+                        } else {
+                            // Effective rate approximation with step-up rates support
+                            for (let i = 1; i <= diffMonths; i++) {
+                                // Interpolated balance for month i (start of month)
+                                const interpolatedBalance = d.totalAmount - (totalPrincipalPaid * ((i - 1) / diffMonths));
+                                
+                                // Find rate for month i
+                                let monthRate = currentRate;
+                                if (d.type === 'long_term' && d.interestRates) {
+                                    if (i <= 12) monthRate = d.interestRates.year1 || 0;
+                                    else if (i <= 24) monthRate = d.interestRates.year2 || d.interestRates.year1 || 0;
+                                    else if (i <= 36) monthRate = d.interestRates.year3 || d.interestRates.year2 || d.interestRates.year1 || 0;
+                                    else monthRate = d.interestRates.year4Plus || d.interestRates.year3 || d.interestRates.year2 || d.interestRates.year1 || 0;
+                                }
+                                
+                                cumulativeInterest += (interpolatedBalance * monthRate / 100) / 12;
+                            }
+                        }
+                        totalInterestPaidText = `<div class="text-[11px] text-expense/90 mt-0.5 flex justify-between"><span>ดอกเบี้ยสะสม (ประเมิน):</span> <span>${formatCurrency(cumulativeInterest)}</span></div>`;
+                    }
+                }
+
                 return `
                 <div class="record-item border-l-4 border-orange-500 flex flex-col md:flex-row justify-between items-start md:items-center relative">
-                    ${d.autoAddExpense ? '<div class="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-accent-cyan bg-accent-cyan/10 px-2 py-0.5 rounded-full"><span class="w-2 h-2 rounded-full bg-accent-cyan animate-pulse"></span> ตัดรายจ่ายอัตโนมัติ</div>' : ''}
+                    ${d.autoAddExpense ? `<div class="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-accent-cyan bg-accent-cyan/10 px-2 py-0.5 rounded-full"><span class="w-2 h-2 rounded-full bg-accent-cyan animate-pulse"></span> ตัดอัตโนมัติ (วันที่ ${d.paymentDate || 1})</div>` : ''}
                     <div class="record-info mb-3 md:mb-0 w-full mt-4 md:mt-0">
                         <div class="font-bold text-lg text-white flex items-center gap-2">
                             ${d.name} 
                             ${d.type === 'long_term' ? '<span class="text-xs bg-white/10 px-2 py-0.5 rounded text-slate-300 font-normal border border-white/10">หนี้ระยะยาว</span>' : ''}
+                            <span class="text-xs bg-white/10 px-2 py-0.5 rounded text-slate-300 font-normal border border-white/10">${d.interestType === 'flat' ? 'ดอกเบี้ยคงที่' : 'ลดต้นลดดอก'}</span>
+                            <span class="text-xs bg-white/10 px-2 py-0.5 rounded text-slate-400 font-normal border border-white/10">ตัดยอดวันที่ ${d.paymentDate || 1}</span>
                         </div>
                         <div class="text-sm text-slate-400 mt-1">ยอดหนี้ปัจจุบัน: <span class="text-orange-400 font-prompt">${formatCurrency(d.balance)}</span> ${d.totalAmount ? `<span class="text-xs text-slate-500">(จาก ${formatCurrency(d.totalAmount)})</span>` : ''}</div>
                         <div class="text-xs text-slate-500 mt-1">ดอกเบี้ยปัจจุบัน: ${currentRate}% ต่อปี (~${formatCurrency(monthlyInterest)}/เดือน)</div>
-                        ${d.monthlyInstallment ? `<div class="text-xs text-accent-cyan mt-1">ยอดผ่อนชำระ: ${formatCurrency(d.monthlyInstallment)}/เดือน</div>` : ''}
+                        ${d.monthlyInstallment ? `<div class="text-xs text-accent-cyan mt-1">ยอดชำระที่ตั้งไว้: ${formatCurrency(d.monthlyInstallment)}/เดือน</div>` : minPaymentInfo ? `<div class="mt-1">${minPaymentInfo}</div>` : ''}
                         <div class="record-actions mt-3">
                             <button class="record-btn text-accent-cyan border-accent-cyan/50 hover:bg-accent-cyan/10" onclick="editDebt('${d.id}')">แก้ไข</button>
                             <button class="record-btn delete" onclick="deleteDebt('${d.id}')">ลบ</button>
                         </div>
                     </div>
-                    <div class="bg-black/20 p-3 rounded-lg border border-white/10 text-center w-full md:w-auto mt-2 md:mt-0">
-                        <div class="text-xs text-slate-400">ดอกเบี้ยต่อเดือน</div>
-                        <div class="font-prompt font-bold text-expense text-lg">${formatCurrency(monthlyInterest)}</div>
+                    <div class="bg-black/20 p-3 rounded-lg border border-white/10 w-full md:w-auto mt-2 md:mt-0 min-w-[220px]">
+                        <div class="text-center mb-2">
+                            <div class="text-xs text-slate-400">ยอดชำระต่อเดือน</div>
+                            <div class="font-prompt font-bold text-white text-xl">${formatCurrency(monthlyPayment)}</div>
+                        </div>
+                        <div class="space-y-1 mt-2 pt-2 border-t border-white/10 text-xs">
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">ตัดเงินต้น:</span>
+                                <span class="text-emerald-400">${formatCurrency(principalPaid)}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">จ่ายดอกเบี้ย:</span>
+                                <span class="text-expense">${formatCurrency(monthlyInterest)}</span>
+                            </div>
+                            ${totalPaidText}
+                            ${totalInterestPaidText}
+                        </div>
+                        ${durationText ? `<div class="mt-2 pt-2 border-t border-white/5 text-[10px] text-center text-slate-500">⏳ ผ่อนชำระมาแล้ว: <span class="text-slate-300">${durationText}</span></div>` : ''}
                     </div>
                 </div>
             `}).join('');
@@ -1816,6 +1975,52 @@ async function loadDebts() {
         console.error('Failed to load debts:', error);
     }
 }
+
+window.countPaymentOccurrences = function(viewStart, viewEnd, debtStartStr, paymentDate) {
+    if (!debtStartStr) return 0;
+    const debtStart = new Date(debtStartStr);
+    
+    const effectiveStart = new Date(Math.max(viewStart.getTime(), debtStart.getTime()));
+    if (effectiveStart > viewEnd) return 0;
+    
+    let count = 0;
+    let d = new Date(effectiveStart.getFullYear(), effectiveStart.getMonth(), paymentDate);
+    
+    if (d < effectiveStart) {
+        d.setMonth(d.getMonth() + 1);
+    }
+    
+    while (d <= viewEnd) {
+        count++;
+        d.setMonth(d.getMonth() + 1);
+    }
+    
+    return count;
+};
+
+window.getViewDateRange = function() {
+    let start, end;
+    if (currentView === 'yearly') {
+        start = new Date(currentYear, 0, 1);
+        end = new Date(currentYear, 11, 31, 23, 59, 59);
+    } else {
+        let cutoff = currentUserSettings?.cutoffDate || 0;
+        if (cutoff === 0 || cutoff >= 31) {
+            start = new Date(currentYear, currentMonth - 1, 1);
+            end = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+        } else {
+            let startYear = currentYear;
+            let startMonth = currentMonth - 1;
+            if (startMonth === 0) {
+                startMonth = 12;
+                startYear--;
+            }
+            start = new Date(startYear, startMonth - 1, cutoff + 1);
+            end = new Date(currentYear, currentMonth - 1, cutoff, 23, 59, 59);
+        }
+    }
+    return { start, end };
+};
 
 // --- Nav Scroll Logic ---
 let lastScrollY = window.scrollY || document.documentElement.scrollTop;

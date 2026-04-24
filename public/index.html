@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Built CSS -->
-    <link rel="stylesheet" href="/css/styles.css?v=5.1">
+    <link rel="stylesheet" href="/css/styles.css?v=5.2">
     <!-- Inline styles for floating shapes -->
     <style>
         .shape {
@@ -713,90 +713,116 @@
 
     <!-- Debt Modal -->
     <div id="debtModal" class="modal-overlay">
-        <div class="modal-content glass-card p-8 relative max-h-[90vh] overflow-y-auto">
+        <div class="modal-content glass-card p-5 md:p-6 relative max-h-[85vh] overflow-y-auto w-full max-w-md">
             <button onclick="closeModal('debtModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
-            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">เพิ่มหนี้สิน</h3>
+            <h3 class="text-xl font-bold mb-4 text-white border-b border-white/10 pb-3">เพิ่มหนี้สิน</h3>
             <form onsubmit="saveDebt(event)">
-                <div class="space-y-4">
-                    <div>
-                        <label class="input-label">ประเภทหนี้สิน</label>
-                        <select id="debtType" class="input-field bg-midnight" onchange="onDebtTypeChange()" required>
-                            <option value="standard">หนี้ทั่วไป (บัตรเครดิต, สินเชื่อส่วนบุคคล)</option>
-                            <option value="long_term">หนี้ระยะยาว (บ้าน, รถ)</option>
-                        </select>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="input-label text-[11px]">ประเภทหนี้สิน</label>
+                            <select id="debtType" class="input-field bg-midnight py-1.5 px-2 text-sm" onchange="onDebtTypeChange()" required>
+                                <option value="standard">หนี้ทั่วไป</option>
+                                <option value="long_term">หนี้ระยะยาว</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="input-label text-[11px]">ประเภทดอกเบี้ย</label>
+                            <select id="debtInterestType" class="input-field bg-midnight py-1.5 px-2 text-sm" onchange="calculateDebtPreview()" required>
+                                <option value="effective">ลดต้นลดดอก</option>
+                                <option value="flat">แบบคงที่</option>
+                            </select>
+                        </div>
                     </div>
                     
-                    <div>
-                        <label class="input-label">ชื่อหนี้สิน</label>
-                        <input type="text" id="debtName" class="input-field" placeholder="เช่น บัตรเครดิต A, สินเชื่อบ้าน" required>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2 sm:col-span-1">
+                            <label class="input-label text-[11px]">ชื่อหนี้สิน</label>
+                            <input type="text" id="debtName" class="input-field py-1.5 px-2 text-sm" placeholder="เช่น บัตรเครดิต A" required>
+                        </div>
+                        <div id="minPaymentPercentageField" class="col-span-2 sm:col-span-1">
+                            <label class="input-label text-[11px]">เปอเซ็นต์ชำระขั้นต่ำ (%)</label>
+                            <input type="number" id="debtMinPaymentPercentage" step="0.01" min="0" max="100" class="input-field number-font py-1.5 px-2 text-sm" oninput="calculateDebtPreview('percentage')">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="input-label text-[11px]">วันที่เริ่มเป็นหนี้</label>
+                            <input type="date" id="debtStartDate" class="input-field py-1.5 px-2 text-sm" required>
+                        </div>
+                        <div>
+                            <label class="input-label text-[11px]">วันที่ตัดยอด (1-31)</label>
+                            <input type="number" id="debtPaymentDate" min="1" max="31" class="input-field py-1.5 px-2 text-sm" value="1" required>
+                        </div>
                     </div>
 
                     <!-- Long-term specific fields -->
-                    <div id="longTermFields" style="display: none;" class="space-y-4 bg-white/5 p-4 rounded-lg border border-white/10">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label class="input-label">ยอดหนี้เริ่มต้น (฿)</label>
-                                <input type="number" id="debtTotalAmount" step="0.01" min="0" class="input-field number-font">
-                            </div>
-                            <div>
-                                <label class="input-label">ระยะเวลาผ่อน (เดือน)</label>
-                                <input type="number" id="debtDurationMonths" min="1" step="1" class="input-field number-font" placeholder="เช่น 360 (30 ปี)">
-                            </div>
-                        </div>
+                    <div id="longTermFields" style="display: none;" class="space-y-3 bg-white/5 p-3 rounded-lg border border-white/10">
+                        <div class="grid grid-cols-2 gap-3">
+
                         <div>
-                            <label class="input-label">วันที่เริ่มผ่อน</label>
-                            <input type="date" id="debtStartDate" class="input-field" onchange="calculateDebtPreview()">
+                            <label class="input-label text-[11px]">เวลาผ่อน (เดือน)</label>
+                            <input type="number" id="debtDurationMonths" min="1" step="1" class="input-field py-1.5 px-2 text-sm number-font" placeholder="เช่น 360">
+                        </div>
                         </div>
                         
-                        <label class="input-label mb-2 block border-b border-white/10 pb-2">อัตราดอกเบี้ยแบบขั้นบันได (%)</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div><label class="text-xs text-slate-400">ปีที่ 1</label><input type="number" id="debtRateY1" step="0.01" min="0" class="input-field py-1 px-2 text-sm number-font" oninput="calculateDebtPreview()"></div>
-                            <div><label class="text-xs text-slate-400">ปีที่ 2</label><input type="number" id="debtRateY2" step="0.01" min="0" class="input-field py-1 px-2 text-sm number-font" oninput="calculateDebtPreview()"></div>
-                            <div><label class="text-xs text-slate-400">ปีที่ 3</label><input type="number" id="debtRateY3" step="0.01" min="0" class="input-field py-1 px-2 text-sm number-font" oninput="calculateDebtPreview()"></div>
-                            <div><label class="text-xs text-slate-400">ปีที่ 4 เป็นต้นไป</label><input type="number" id="debtRateY4Plus" step="0.01" min="0" class="input-field py-1 px-2 text-sm number-font" oninput="calculateDebtPreview()"></div>
+                        <label class="input-label mb-1 block border-b border-white/10 pb-1 text-[11px]">อัตราดอกเบี้ยแบบขั้นบันได (%)</label>
+                        <div class="grid grid-cols-4 gap-2">
+                            <div><label class="text-[10px] text-slate-400">ปีที่ 1</label><input type="number" id="debtRateY1" step="0.01" min="0" class="input-field py-1 px-1 text-xs number-font text-center" oninput="calculateDebtPreview()"></div>
+                            <div><label class="text-[10px] text-slate-400">ปีที่ 2</label><input type="number" id="debtRateY2" step="0.01" min="0" class="input-field py-1 px-1 text-xs number-font text-center" oninput="calculateDebtPreview()"></div>
+                            <div><label class="text-[10px] text-slate-400">ปีที่ 3</label><input type="number" id="debtRateY3" step="0.01" min="0" class="input-field py-1 px-1 text-xs number-font text-center" oninput="calculateDebtPreview()"></div>
+                            <div><label class="text-[10px] text-slate-400">ปีที่ 4+</label><input type="number" id="debtRateY4Plus" step="0.01" min="0" class="input-field py-1 px-1 text-xs number-font text-center" oninput="calculateDebtPreview()"></div>
                         </div>
                     </div>
 
-                    <div>
-                        <label class="input-label">ยอดหนี้คงเหลือปัจจุบัน (฿)</label>
-                        <input type="number" id="debtBalance" step="0.01" min="0" class="input-field number-font" oninput="calculateDebtPreview()" required>
-                    </div>
-
-                    <div class="grid grid-cols-2 gap-4">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="col-span-2">
+                            <label class="input-label text-[11px]">ยอดหนี้เริ่มต้น (฿)</label>
+                            <input type="number" id="debtTotalAmount" step="0.01" min="0" class="input-field py-1.5 px-2 text-sm number-font" placeholder="เช่น ยอดเงินต้นที่กู้มา" oninput="calculateDebtPreview()">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="input-label text-[11px]">ยอดหนี้คงเหลือปัจจุบัน (฿)</label>
+                            <input type="number" id="debtBalance" step="0.01" min="0" class="input-field py-1.5 px-2 text-sm number-font" oninput="calculateDebtPreview()" required>
+                        </div>
                         <div id="standardInterestField">
-                            <label class="input-label">ดอกเบี้ยต่อปี (%)</label>
-                            <input type="number" id="debtInterest" step="0.01" min="0" class="input-field number-font" oninput="calculateDebtPreview()">
+                            <label class="input-label text-[11px]">ดอกเบี้ยต่อปี (%)</label>
+                            <input type="number" id="debtInterest" step="0.01" min="0" class="input-field py-1.5 px-2 text-sm number-font" oninput="calculateDebtPreview()">
                         </div>
-                        <div class="col-span-2 md:col-span-1" id="installmentFieldContainer">
-                            <label class="input-label">ยอดที่จ่ายต่อเดือน (฿)</label>
-                            <input type="number" id="debtInstallment" step="0.01" min="0" class="input-field number-font" placeholder="ถ้าไม่กรอกจะใช้ดอกเบี้ย" oninput="calculateDebtPreview()">
+                        <div id="installmentFieldContainer">
+                            <label class="input-label text-[11px]">ยอดที่จ่ายต่อเดือน (฿)</label>
+                            <input type="number" id="debtInstallment" step="0.01" min="0" class="input-field py-1.5 px-2 text-sm number-font" placeholder="คำนวณอัตโนมัติ" oninput="calculateDebtPreview('installment')">
                         </div>
                     </div>
 
-                    <div class="mt-2 flex items-center gap-2 bg-black/20 p-3 rounded border border-white/5 cursor-pointer hover:bg-white/5 transition-colors" onclick="const cb=document.getElementById('debtAutoAddExpense');cb.checked=!cb.checked;">
-                        <input type="checkbox" id="debtAutoAddExpense" class="w-5 h-5 accent-orange-500" onclick="event.stopPropagation()">
-                        <div class="text-sm">
-                            <div class="text-white">เพิ่มยอดผ่อนเป็น "รายจ่าย" สิ้นเดือนอัตโนมัติ</div>
-                            <div class="text-xs text-slate-400">ระบบจะนำยอดจ่ายต่อเดือน ไปรวมในสรุปรายจ่ายของเดือนนั้นๆ ให้อัตโนมัติ</div>
+                    <div class="mt-2 flex items-center gap-2 bg-black/20 p-2.5 rounded border border-white/5 cursor-pointer hover:bg-white/5 transition-colors" onclick="const cb=document.getElementById('debtAutoAddExpense');cb.checked=!cb.checked;">
+                        <input type="checkbox" id="debtAutoAddExpense" class="w-4 h-4 accent-orange-500" onclick="event.stopPropagation()">
+                        <div class="text-xs">
+                            <div class="text-white">เพิ่มยอดผ่อนเป็น "รายจ่าย" ประจำเดือนอัตโนมัติ</div>
                         </div>
                     </div>
                     
                     <!-- Preview -->
-                    <div class="bg-black/20 p-4 rounded-lg border border-white/10 space-y-2 mt-4">
-                        <div id="debtCurrentRateInfo" style="display: none;" class="flex justify-between items-center text-sm border-b border-white/5 pb-2 mb-2">
-                            <span class="text-slate-300">ดอกเบี้ยปัจจุบันที่ใช้คำนวณ</span>
+                    <div class="bg-black/20 p-3 rounded-lg border border-white/10 space-y-1 mt-3">
+                        <div id="debtCurrentRateInfo" style="display: none;" class="flex justify-between items-center text-[11px] border-b border-white/5 pb-1 mb-1">
+                            <span class="text-slate-300">ดอกเบี้ยปัจจุบันที่ใช้</span>
                             <span id="debtCurrentRateDisplay" class="font-prompt font-bold text-accent-cyan">0%</span>
                         </div>
-                        <div class="flex justify-between items-center text-sm">
+                        <div class="flex justify-between items-center text-xs">
                             <span class="text-slate-300">ดอกเบี้ยรายเดือน (โดยประมาณ)</span>
                             <span id="debtInterestDisplay" class="font-prompt font-bold text-expense">฿0.00</span>
                         </div>
-                        <div class="text-xs text-slate-500 mt-1">สูตร: (ยอดหนี้ × ดอกเบี้ยต่อปี / 100) / 12</div>
+                        <div class="text-[10px] text-slate-500" id="debtFormulaHint">สูตร: (ยอดหนี้ × ดอกเบี้ย / 100) / 12</div>
+                        
+                        <div id="debtMinPaymentInfo" style="display: none;" class="flex justify-between items-center text-xs mt-2 pt-2 border-t border-white/5">
+                            <span class="text-slate-300" id="debtMinPaymentText">ยอดชำระขั้นต่ำ</span>
+                            <span id="debtMinPaymentDisplay" class="font-prompt font-bold text-orange-400">฿0.00</span>
+                        </div>
                     </div>
                 </div>
-                <div class="mt-8 flex gap-3">
-                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('debtModal')">ยกเลิก</button>
-                    <button type="submit" class="btn-primary flex-1 shadow-glow-red bg-gradient-to-r from-orange-500 to-red-500">บันทึกหนี้สิน</button>
+                <div class="mt-5 flex gap-3">
+                    <button type="button" class="btn-secondary flex-1 py-2 text-sm" onclick="closeModal('debtModal')">ยกเลิก</button>
+                    <button type="submit" class="btn-primary flex-1 py-2 text-sm shadow-glow-red bg-gradient-to-r from-orange-500 to-red-500">บันทึกหนี้สิน</button>
                 </div>
             </form>
         </div>
