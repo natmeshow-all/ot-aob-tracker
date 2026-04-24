@@ -300,8 +300,97 @@ router.delete('/transactions/:id', async (req, res) => {
 // ---------------------------------
 router.get('/debts', async (req, res) => {
     try {
+        const { year, month } = req.query;
         const debts = await Debt.find({ userId: toId(req.user.id) }).sort({ balance: -1 }).lean();
-        res.json(debts.map(d => ({ ...d, id: d._id })));
+        
+        const results = debts.map(d => {
+            let periodBalance = d.balance;
+            let periodPayment = null;
+            let cumulativePrincipalPaid = 0;
+            let cumulativeInterestPaid = 0;
+
+            const sortedPayments = (d.payments || []).sort((a, b) => {
+                if (a.year !== b.year) return a.year - b.year || a.month - b.month;
+                return 0;
+            });
+
+            if (year && month) {
+                const y = parseInt(year);
+                const m = parseInt(month);
+                
+                // Find payment for this specific month
+                periodPayment = sortedPayments.find(p => p.year === y && p.month === m);
+                
+                // Calculate cumulative up to this month
+                sortedPayments.forEach(p => {
+                    if (p.year < y || (p.year === y && p.month <= m)) {
+                        cumulativePrincipalPaid += p.principal;
+                        cumulativeInterestPaid += p.interest;
+                    }
+                });
+
+                if (periodPayment) {
+                    periodBalance = periodPayment.balanceAfter + periodPayment.principal;
+                } else {
+                    const lastPaymentBefore = [...sortedPayments].reverse().find(p => p.year < y || (p.year === y && p.month < m));
+                    if (lastPaymentBefore) {
+                        periodBalance = lastPaymentBefore.balanceAfter;
+                    } else if (d.startDate) {
+                        const start = new Date(d.startDate);
+                        if (y < start.getFullYear() || (y === start.getFullYear() && m < start.getMonth() + 1)) {
+                            periodBalance = 0;
+                        } else {
+                            periodBalance = d.totalAmount || d.balance;
+                        }
+                    } else {
+                        periodBalance = d.totalAmount || d.balance;
+                    }
+                }
+            } else {
+                // Global view - sum everything
+                sortedPayments.forEach(p => {
+                    cumulativePrincipalPaid += p.principal;
+                    cumulativeInterestPaid += p.interest;
+                });
+            }
+
+            return { ...d, id: d._id, periodBalance, periodPayment, cumulativePrincipalPaid, cumulativeInterestPaid };
+        });
+
+        res.json(results);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+router.post('/debts/:id/payments', async (req, res) => {
+    try {
+        const { year, month, amount, interest, principal, balanceAfter, date } = req.body;
+        const d = await Debt.findOne({ _id: req.params.id, userId: toId(req.user.id) });
+        if (!d) return res.status(404).json({ error: 'Debt not found' });
+
+        // Update or add payment for this month
+        const existingIdx = d.payments.findIndex(p => p.year === year && p.month === month);
+        const paymentData = { year, month, amount, interest, principal, balanceAfter, date: date || new Date() };
+
+        if (existingIdx > -1) {
+            d.payments[existingIdx] = paymentData;
+        } else {
+            d.payments.push(paymentData);
+        }
+
+        // Sort payments by date
+        d.payments.sort((a, b) => (a.year !== b.year) ? a.year - b.year : a.month - b.month);
+
+        // If this is the most recent payment, update current balance
+        const lastPayment = d.payments[d.payments.length - 1];
+        const now = new Date();
+        if (lastPayment.year > now.getFullYear() || (lastPayment.year === now.getFullYear() && lastPayment.month >= now.getMonth() + 1)) {
+            d.balance = lastPayment.balanceAfter;
+        }
+
+        await d.save();
+        res.json({ success: true, debt: d });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

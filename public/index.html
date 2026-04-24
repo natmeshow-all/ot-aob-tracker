@@ -864,6 +864,70 @@
         </div>
     </div>
 
+    <!-- Debt Payment Modal -->
+    <div id="debtPaymentModal" class="modal-overlay">
+        <div class="modal-content glass-card p-8 relative">
+            <button onclick="closeModal('debtPaymentModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h3 class="text-2xl font-bold mb-6 text-white border-b border-white/10 pb-4">บันทึกยอดชำระรายเดือน</h3>
+            <form onsubmit="saveDebtPayment(event)">
+                <input type="hidden" id="paymentDebtId">
+                <div class="space-y-4">
+                    <div class="bg-white/5 p-4 rounded-lg border border-white/10 mb-4">
+                        <div class="text-xs text-slate-400 uppercase">หนี้สิน</div>
+                        <div class="text-lg font-bold text-white" id="paymentDebtName">-</div>
+                        <div class="text-xs text-slate-500 mt-1" id="paymentPeriodLabel">-</div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="input-label">ยอดหนี้ต้นเดือน (฿)</label>
+                            <input type="number" id="paymentStartBalance" step="0.01" min="0" class="input-field number-font" oninput="calculateDebtPaymentFields()" required>
+                        </div>
+                        <div>
+                            <label class="input-label">ยอดที่ชำระ (฿)</label>
+                            <input type="number" id="paymentAmount" step="0.01" min="0" class="input-field number-font" oninput="calculateDebtPaymentFields()" required>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="input-label">ดอกเบี้ยที่จ่าย (฿)</label>
+                            <input type="number" id="paymentInterest" step="0.01" min="0" class="input-field number-font" oninput="calculateDebtPaymentFields(true)" required>
+                        </div>
+                        <div>
+                            <label class="input-label">ตัดเงินต้น (฿)</label>
+                            <input type="number" id="paymentPrincipal" step="0.01" min="0" class="input-field number-font" oninput="calculateDebtPaymentFields(false)" required>
+                        </div>
+                    </div>
+
+                    <div class="bg-black/20 p-4 rounded-lg border border-white/10 flex justify-between items-center">
+                        <span class="text-slate-300">ยอดหนี้คงเหลือหลังชำระ</span>
+                        <span id="paymentEndBalanceDisplay" class="font-prompt font-bold text-orange-400 text-xl">฿0.00</span>
+                        <input type="hidden" id="paymentEndBalance">
+                    </div>
+                </div>
+                <div class="mt-8 flex gap-3">
+                    <button type="button" class="btn-secondary flex-1" onclick="closeModal('debtPaymentModal')">ยกเลิก</button>
+                    <button type="submit" class="btn-primary flex-1 shadow-glow-indigo">บันทึกข้อมูล</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Debt History Modal -->
+    <div id="debtHistoryModal" class="modal-overlay">
+        <div class="modal-content glass-card p-6 relative max-w-lg">
+            <button onclick="closeModal('debtHistoryModal')" class="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl leading-none">&times;</button>
+            <h3 class="text-2xl font-bold mb-4 text-white border-b border-white/10 pb-4">ประวัติการชำระหนี้</h3>
+            <div id="debtHistoryList" class="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                <!-- History items injected here -->
+            </div>
+            <div class="mt-6">
+                <button type="button" class="btn-secondary w-full" onclick="closeModal('debtHistoryModal')">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module" src="/js/app.js"></script>
 </body>
 </html>

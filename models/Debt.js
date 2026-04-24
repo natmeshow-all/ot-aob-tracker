@@ -20,6 +20,15 @@ const debtSchema = new mongoose.Schema({
     minPaymentPercentage: { type: Number, default: 5 }, // Minimum payment % for effective interest rate
     annualInterestRate: { type: Number, min: 0 }, // For standard debt
     monthlyInstallment: { type: Number, default: 0, min: 0 },
+    payments: [{
+        year: { type: Number, required: true },
+        month: { type: Number, required: true },
+        amount: { type: Number, required: true },
+        interest: { type: Number, required: true },
+        principal: { type: Number, required: true },
+        balanceAfter: { type: Number, required: true },
+        date: { type: Date, default: Date.now }
+    }],
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now }
 });

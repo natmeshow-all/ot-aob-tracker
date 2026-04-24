@@ -293,7 +293,7 @@ async function loadDashboard() {
             apiFetch(`/api/ot${getDateRangeQuery()}`),
             getFundSummary(),
             apiFetch(`/api/transactions${getDateRangeQuery()}`),
-            apiFetch(`/api/debts`) // Debts are typically global, not filtered by date range
+            apiFetch(`/api/debts?year=${currentYear}&month=${currentMonth}`) // Debts are now filtered by date range
         ]);
 
         // Compute OT
@@ -356,7 +356,7 @@ async function loadDashboard() {
         let autoDebtCount = 0;
 
         debts.forEach(d => {
-            totalDebtBalance += d.balance;
+            totalDebtBalance += d.periodBalance;
             let currentRate = d.annualInterestRate || 0;
             if (d.type === 'long_term') {
                 currentRate = calculateCurrentInterestRate(d.startDate, d.interestRates);
@@ -364,10 +364,10 @@ async function loadDashboard() {
             
             let monthlyInterest = 0;
             if (d.interestType === 'flat') {
-                const principal = d.totalAmount || d.balance;
+                const principal = d.totalAmount || d.periodBalance;
                 monthlyInterest = (principal * currentRate / 100) / 12;
             } else {
-                monthlyInterest = (d.balance * currentRate / 100) / 12;
+                monthlyInterest = (d.periodBalance * currentRate / 100) / 12;
             }
 
             let defaultInstallment = monthlyInterest;
@@ -376,10 +376,10 @@ async function loadDashboard() {
                 defaultInstallment = Math.max(d.balance * minPct, monthlyInterest);
             }
 
-            const installment = d.monthlyInstallment || defaultInstallment;
+            const installment = d.periodPayment ? d.periodPayment.amount : (d.monthlyInstallment || defaultInstallment);
             totalDebtMonthlyPayment += installment;
 
-            if (d.autoAddExpense) {
+            if (d.autoAddExpense && !d.periodPayment) {
                 const { start: viewStart, end: viewEnd } = getViewDateRange();
                 const occurrences = countPaymentOccurrences(viewStart, viewEnd, d.startDate || d.createdAt, d.paymentDate || 1);
                 autoDebtExpenseTotal += (installment * occurrences);
@@ -1799,7 +1799,7 @@ window.editDebt = async function(id) {
 async function loadDebts() {
     if (!currentUser) return;
     try {
-        const debts = await apiFetch('/api/debts');
+        const debts = await apiFetch(`/api/debts?year=${currentYear}&month=${currentMonth}`);
         const list = document.getElementById('debtList');
         const summary = document.getElementById('debtSummary');
         const recContent = document.getElementById('debtRecContent');
@@ -1810,21 +1810,21 @@ async function loadDebts() {
 
         if (debts.length > 0) {
             list.innerHTML = debts.map(d => {
-                totalBalance += d.balance;
+                const bal = d.periodBalance;
+                totalBalance += bal;
                 let currentRate = d.annualInterestRate || 0;
                 
                 if (d.type === 'long_term') {
                     currentRate = calculateCurrentInterestRate(d.startDate, d.interestRates);
-                    // Overwrite d.annualInterestRate so recommendation logic (Avalanche) can use it
                     d.annualInterestRate = currentRate;
                 }
 
                 let monthlyInterest = 0;
                 if (d.interestType === 'flat') {
-                    const principal = d.totalAmount || d.balance;
+                    const principal = d.totalAmount || bal;
                     monthlyInterest = (principal * currentRate / 100) / 12;
                 } else {
-                    monthlyInterest = (d.balance * currentRate / 100) / 12;
+                    monthlyInterest = (bal * currentRate / 100) / 12;
                 }
                 
                 totalMonthlyInterest += monthlyInterest;
@@ -1833,18 +1833,19 @@ async function loadDebts() {
                 let minPayment = monthlyInterest;
                 if (d.interestType === 'effective') {
                     const minPct = (d.minPaymentPercentage || 5) / 100;
-                    minPayment = Math.max(d.balance * minPct, monthlyInterest);
+                    minPayment = Math.max(bal * minPct, monthlyInterest);
                     minPaymentInfo = `<span class="text-xs text-orange-400">ขั้นต่ำ: ${formatCurrency(minPayment)}</span>`;
                 }
 
-                totalInstallment += d.monthlyInstallment || minPayment;
+                const monthlyPayment = d.periodPayment ? d.periodPayment.amount : (d.monthlyInstallment || minPayment);
+                totalInstallment += monthlyPayment;
                 
                 let durationText = '';
                 let diffMonths = 0;
                 const baseDateStr = d.startDate || d.createdAt;
                 if (baseDateStr) {
                     const start = new Date(baseDateStr);
-                    const now = new Date();
+                    const now = new Date(currentYear, currentMonth - 1, 1);
                     diffMonths = (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth());
                     if (diffMonths > 0) {
                         const years = Math.floor(diffMonths / 12);
@@ -1852,17 +1853,25 @@ async function loadDebts() {
                         if (years > 0 && months > 0) durationText = `${years} ปี ${months} เดือน`;
                         else if (years > 0) durationText = `${years} ปี`;
                         else durationText = `${months} เดือน`;
-                    } else {
+                    } else if (diffMonths === 0) {
                         durationText = 'เริ่มชำระเดือนนี้';
+                    } else {
+                        durationText = 'ยังไม่ถึงกำหนด';
                     }
                 }
 
-                const monthlyPayment = d.monthlyInstallment || minPayment;
-                const principalPaid = Math.max(0, monthlyPayment - monthlyInterest);
+                const actualInterest = d.periodPayment ? d.periodPayment.interest : monthlyInterest;
+                const actualPrincipal = d.periodPayment ? d.periodPayment.principal : Math.max(0, monthlyPayment - monthlyInterest);
                 
                 let totalPaidText = '';
                 let totalInterestPaidText = '';
-                if (d.totalAmount && d.totalAmount > d.balance) {
+                
+                // Use actual cumulative data if available
+                if (d.cumulativePrincipalPaid > 0) {
+                    totalPaidText = `<div class="text-[11px] text-emerald-400/90 mt-1 flex justify-between"><span>คืนต้นสะสม (ถึงเดือนนี้):</span> <span>${formatCurrency(d.cumulativePrincipalPaid)}</span></div>`;
+                    totalInterestPaidText = `<div class="text-[11px] text-expense/90 mt-0.5 flex justify-between"><span>ดอกเบี้ยสะสม (ถึงเดือนนี้):</span> <span>${formatCurrency(d.cumulativeInterestPaid)}</span></div>`;
+                } else if (d.totalAmount && d.totalAmount > d.balance) {
+                    // Fallback to approximation if no actual records
                     const totalPrincipalPaid = d.totalAmount - d.balance;
                     totalPaidText = `<div class="text-[11px] text-emerald-400/90 mt-1 flex justify-between"><span>คืนต้นสะสม:</span> <span>${formatCurrency(totalPrincipalPaid)}</span></div>`;
                     
@@ -1872,12 +1881,8 @@ async function loadDebts() {
                             const fixedMonthlyInterest = (d.totalAmount * currentRate / 100) / 12;
                             cumulativeInterest = fixedMonthlyInterest * diffMonths;
                         } else {
-                            // Effective rate approximation with step-up rates support
                             for (let i = 1; i <= diffMonths; i++) {
-                                // Interpolated balance for month i (start of month)
                                 const interpolatedBalance = d.totalAmount - (totalPrincipalPaid * ((i - 1) / diffMonths));
-                                
-                                // Find rate for month i
                                 let monthRate = currentRate;
                                 if (d.type === 'long_term' && d.interestRates) {
                                     if (i <= 12) monthRate = d.interestRates.year1 || 0;
@@ -1885,7 +1890,6 @@ async function loadDebts() {
                                     else if (i <= 36) monthRate = d.interestRates.year3 || d.interestRates.year2 || d.interestRates.year1 || 0;
                                     else monthRate = d.interestRates.year4Plus || d.interestRates.year3 || d.interestRates.year2 || d.interestRates.year1 || 0;
                                 }
-                                
                                 cumulativeInterest += (interpolatedBalance * monthRate / 100) / 12;
                             }
                         }
@@ -1893,42 +1897,45 @@ async function loadDebts() {
                     }
                 }
 
+                const isPaid = !!d.periodPayment;
+
                 return `
-                <div class="record-item border-l-4 border-orange-500 flex flex-col md:flex-row justify-between items-start md:items-center relative">
+                <div class="record-item border-l-4 ${isPaid ? 'border-emerald-500 shadow-glow-cyan/20' : 'border-orange-500'} flex flex-col md:flex-row justify-between items-start md:items-center relative">
                     ${d.autoAddExpense ? `<div class="absolute top-2 right-2 flex items-center gap-1 text-[10px] text-accent-cyan bg-accent-cyan/10 px-2 py-0.5 rounded-full"><span class="w-2 h-2 rounded-full bg-accent-cyan animate-pulse"></span> ตัดอัตโนมัติ (วันที่ ${d.paymentDate || 1})</div>` : ''}
                     <div class="record-info mb-3 md:mb-0 w-full mt-4 md:mt-0">
                         <div class="font-bold text-lg text-white flex items-center gap-2">
                             ${d.name} 
                             ${d.type === 'long_term' ? '<span class="text-xs bg-white/10 px-2 py-0.5 rounded text-slate-300 font-normal border border-white/10">หนี้ระยะยาว</span>' : ''}
                             <span class="text-xs bg-white/10 px-2 py-0.5 rounded text-slate-300 font-normal border border-white/10">${d.interestType === 'flat' ? 'ดอกเบี้ยคงที่' : 'ลดต้นลดดอก'}</span>
-                            <span class="text-xs bg-white/10 px-2 py-0.5 rounded text-slate-400 font-normal border border-white/10">ตัดยอดวันที่ ${d.paymentDate || 1}</span>
                         </div>
-                        <div class="text-sm text-slate-400 mt-1">ยอดหนี้ปัจจุบัน: <span class="text-orange-400 font-prompt">${formatCurrency(d.balance)}</span> ${d.totalAmount ? `<span class="text-xs text-slate-500">(จาก ${formatCurrency(d.totalAmount)})</span>` : ''}</div>
+                        <div class="text-sm text-slate-400 mt-1">ยอดหนี้${currentView === 'monthly' ? 'เดือนนี้' : 'ปัจจุบัน'}: <span class="text-orange-400 font-prompt font-bold">${formatCurrency(bal)}</span> ${d.totalAmount ? `<span class="text-xs text-slate-500">(จาก ${formatCurrency(d.totalAmount)})</span>` : ''}</div>
                         <div class="text-xs text-slate-500 mt-1">ดอกเบี้ยปัจจุบัน: ${currentRate}% ต่อปี (~${formatCurrency(monthlyInterest)}/เดือน)</div>
                         ${d.monthlyInstallment ? `<div class="text-xs text-accent-cyan mt-1">ยอดชำระที่ตั้งไว้: ${formatCurrency(d.monthlyInstallment)}/เดือน</div>` : minPaymentInfo ? `<div class="mt-1">${minPaymentInfo}</div>` : ''}
                         <div class="record-actions mt-3">
-                            <button class="record-btn text-accent-cyan border-accent-cyan/50 hover:bg-accent-cyan/10" onclick="editDebt('${d.id}')">แก้ไข</button>
+                            <button class="record-btn text-emerald-400 border-emerald-400/50 hover:bg-emerald-400/10" onclick="openDebtPaymentModal('${d.id}')">${isPaid ? 'แก้ไขยอดจ่าย' : 'บันทึกจ่ายเดือนนี้'}</button>
+                            <button class="record-btn text-accent-violet border-accent-violet/50 hover:bg-accent-violet/10" onclick="openDebtHistory('${d.id}')">ประวัติ</button>
+                            <button class="record-btn text-accent-cyan border-accent-cyan/50 hover:bg-accent-cyan/10" onclick="editDebt('${d.id}')">ตั้งค่า</button>
                             <button class="record-btn delete" onclick="deleteDebt('${d.id}')">ลบ</button>
                         </div>
                     </div>
-                    <div class="bg-black/20 p-3 rounded-lg border border-white/10 w-full md:w-auto mt-2 md:mt-0 min-w-[220px]">
+                    <div class="${isPaid ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-black/20 border-white/10'} p-3 rounded-lg border w-full md:w-auto mt-2 md:mt-0 min-w-[220px]">
                         <div class="text-center mb-2">
-                            <div class="text-xs text-slate-400">ยอดชำระต่อเดือน</div>
+                            <div class="text-xs text-slate-400">ยอดชำระเดือนนี้</div>
                             <div class="font-prompt font-bold text-white text-xl">${formatCurrency(monthlyPayment)}</div>
                         </div>
                         <div class="space-y-1 mt-2 pt-2 border-t border-white/10 text-xs">
                             <div class="flex justify-between">
                                 <span class="text-slate-400">ตัดเงินต้น:</span>
-                                <span class="text-emerald-400">${formatCurrency(principalPaid)}</span>
+                                <span class="text-emerald-400">${formatCurrency(actualPrincipal)}</span>
                             </div>
                             <div class="flex justify-between">
                                 <span class="text-slate-400">จ่ายดอกเบี้ย:</span>
-                                <span class="text-expense">${formatCurrency(monthlyInterest)}</span>
+                                <span class="text-expense">${formatCurrency(actualInterest)}</span>
                             </div>
                             ${totalPaidText}
                             ${totalInterestPaidText}
                         </div>
-                        ${durationText ? `<div class="mt-2 pt-2 border-t border-white/5 text-[10px] text-center text-slate-500">⏳ ผ่อนชำระมาแล้ว: <span class="text-slate-300">${durationText}</span></div>` : ''}
+                        ${durationText ? `<div class="mt-2 pt-2 border-t border-white/5 text-[10px] text-center text-slate-500">⏳ ${diffMonths >= 0 ? 'ผ่อนชำระมาแล้ว' : 'เริ่มในอนาคต'}: <span class="text-slate-300">${durationText}</span></div>` : ''}
                     </div>
                 </div>
             `}).join('');
@@ -2036,3 +2043,134 @@ window.addEventListener('scroll', () => {
     }
     lastScrollY = currentScrollY;
 });
+
+window.openDebtPaymentModal = async function(id) {
+    try {
+        const debts = await apiFetch(`/api/debts?year=${currentYear}&month=${currentMonth}`);
+        const d = debts.find(x => x.id === id);
+        if (!d) return;
+
+        document.getElementById('paymentDebtId').value = id;
+        document.getElementById('paymentDebtName').textContent = d.name;
+        document.getElementById('paymentPeriodLabel').textContent = `รอบเดือน ${thaiMonths[currentMonth - 1]} ${currentYear + 543}`;
+
+        // Set values
+        const bal = d.periodBalance;
+        document.getElementById('paymentStartBalance').value = bal;
+        
+        let currentRate = d.annualInterestRate || 0;
+        if (d.type === 'long_term') {
+            currentRate = calculateCurrentInterestRate(d.startDate, d.interestRates);
+        }
+
+        let monthlyInterest = 0;
+        if (d.interestType === 'flat') {
+            const principal = d.totalAmount || bal;
+            monthlyInterest = (principal * currentRate / 100) / 12;
+        } else {
+            monthlyInterest = (bal * currentRate / 100) / 12;
+        }
+
+        if (d.periodPayment) {
+            document.getElementById('paymentAmount').value = d.periodPayment.amount;
+            document.getElementById('paymentInterest').value = d.periodPayment.interest;
+            document.getElementById('paymentPrincipal').value = d.periodPayment.principal;
+            document.getElementById('paymentEndBalance').value = d.periodPayment.balanceAfter;
+        } else {
+            const minPct = (d.minPaymentPercentage || 5) / 100;
+            const installment = d.monthlyInstallment || Math.max(bal * minPct, monthlyInterest);
+            
+            document.getElementById('paymentAmount').value = installment.toFixed(2);
+            document.getElementById('paymentInterest').value = monthlyInterest.toFixed(2);
+            document.getElementById('paymentPrincipal').value = Math.max(0, installment - monthlyInterest).toFixed(2);
+            document.getElementById('paymentEndBalance').value = Math.max(0, bal - (installment - monthlyInterest)).toFixed(2);
+        }
+
+        calculateDebtPaymentFields();
+        document.getElementById('debtPaymentModal').classList.add('active');
+    } catch (e) {
+        showAlert('ผิดพลาด', 'ดึงข้อมูลไม่สำเร็จ: ' + e.message, 'error');
+    }
+};
+
+window.calculateDebtPaymentFields = function(interestChanged = null) {
+    const startBal = parseFloat(document.getElementById('paymentStartBalance').value) || 0;
+    const amount = parseFloat(document.getElementById('paymentAmount').value) || 0;
+    let interest = parseFloat(document.getElementById('paymentInterest').value) || 0;
+    let principal = parseFloat(document.getElementById('paymentPrincipal').value) || 0;
+
+    if (interestChanged === true) {
+        principal = Math.max(0, amount - interest);
+        document.getElementById('paymentPrincipal').value = principal.toFixed(2);
+    } else if (interestChanged === false) {
+        interest = Math.max(0, amount - principal);
+        document.getElementById('paymentInterest').value = interest.toFixed(2);
+    } else {
+        principal = Math.max(0, amount - interest);
+        document.getElementById('paymentPrincipal').value = principal.toFixed(2);
+    }
+
+    const endBal = Math.max(0, startBal - principal);
+    document.getElementById('paymentEndBalance').value = endBal;
+    document.getElementById('paymentEndBalanceDisplay').textContent = formatCurrency(endBal);
+};
+
+window.saveDebtPayment = async function(event) {
+    event.preventDefault();
+    const id = document.getElementById('paymentDebtId').value;
+    const data = {
+        year: currentYear,
+        month: currentMonth,
+        amount: parseFloat(document.getElementById('paymentAmount').value),
+        interest: parseFloat(document.getElementById('paymentInterest').value),
+        principal: parseFloat(document.getElementById('paymentPrincipal').value),
+        balanceAfter: parseFloat(document.getElementById('paymentEndBalance').value),
+        date: new Date()
+    };
+
+    try {
+        await apiFetch(`/api/debts/${id}/payments`, { method: 'POST', body: JSON.stringify(data) });
+        closeModal('debtPaymentModal');
+        loadDebts();
+        loadDashboard();
+    } catch (e) {
+        showAlert('ผิดพลาด', 'บันทึกไม่สำเร็จ: ' + e.message, 'error');
+    }
+};
+
+window.closeModal = function(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+};
+
+window.openDebtHistory = async function(id) {
+    try {
+        const debts = await apiFetch('/api/debts');
+        const d = debts.find(x => x.id === id);
+        if (!d || !d.payments || d.payments.length === 0) {
+            showAlert('ข้อมูล', 'ยังไม่มีประวัติการชำระสำหรับหนี้รายการนี้', 'info');
+            return;
+        }
+
+        const list = document.getElementById('debtHistoryList');
+        const sorted = [...d.payments].sort((a, b) => b.year - a.year || b.month - a.month);
+        
+        list.innerHTML = sorted.map(p => `
+            <div class="bg-white/5 p-4 rounded-lg border border-white/10 flex justify-between items-center">
+                <div>
+                    <div class="text-xs text-slate-400">${thaiMonths[p.month - 1]} ${p.year + 543}</div>
+                    <div class="text-lg font-bold text-white">${formatCurrency(p.amount)}</div>
+                    <div class="text-[10px] text-slate-500 mt-1">วันที่บันทึก: ${formatDate(p.date)}</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-xs text-emerald-400">ต้น: ${formatCurrency(p.principal)}</div>
+                    <div class="text-xs text-expense">ดอก: ${formatCurrency(p.interest)}</div>
+                    <div class="text-[10px] text-orange-400 mt-1">คงเหลือ: ${formatCurrency(p.balanceAfter)}</div>
+                </div>
+            </div>
+        `).join('');
+
+        document.getElementById('debtHistoryModal').classList.add('active');
+    } catch (e) {
+        showAlert('ผิดพลาด', 'ดึงประวัติไม่สำเร็จ: ' + e.message, 'error');
+    }
+};
